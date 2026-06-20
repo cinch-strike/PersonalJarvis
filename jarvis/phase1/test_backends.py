@@ -10,6 +10,7 @@ from unittest import mock
 import tts
 import input_trigger
 import llm
+import doctor
 
 
 def _which_all(_binary):
@@ -182,6 +183,41 @@ class TestFallbackLLM(unittest.TestCase):
     def test_empty_raises(self):
         with self.assertRaises(llm.LLMError):
             llm.FallbackLLM([])
+
+
+class TestDoctor(unittest.TestCase):
+    def test_anthropic_key_present(self):
+        with mock.patch.dict("os.environ", {"ANTHROPIC_API_KEY": "x"}), mock.patch.object(
+            doctor.config, "LLM_BACKEND", "auto"
+        ):
+            self.assertEqual(doctor.check_anthropic_key().status, doctor.OK)
+
+    def test_anthropic_key_missing_auto_warns(self):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            doctor.config, "LLM_BACKEND", "auto"
+        ):
+            self.assertEqual(doctor.check_anthropic_key().status, doctor.WARN)
+
+    def test_anthropic_key_missing_claude_fails(self):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            doctor.config, "LLM_BACKEND", "claude"
+        ):
+            self.assertEqual(doctor.check_anthropic_key().status, doctor.FAIL)
+
+    def test_anthropic_key_na_for_ollama(self):
+        with mock.patch.dict("os.environ", {}, clear=True), mock.patch.object(
+            doctor.config, "LLM_BACKEND", "ollama"
+        ):
+            self.assertEqual(doctor.check_anthropic_key().status, doctor.OK)
+
+    def test_sqlite_writable_ok(self):
+        # The project dir is writable in the test environment.
+        self.assertEqual(doctor.check_sqlite().status, doctor.OK)
+
+    def test_run_returns_int_and_does_not_raise(self):
+        # Smoke test: full report runs end to end. AWS probe is network-tolerant.
+        code = doctor.run()
+        self.assertIn(code, (0, 1))
 
 
 if __name__ == "__main__":

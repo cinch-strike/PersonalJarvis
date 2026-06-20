@@ -9,6 +9,7 @@ the OS / env (see config.py). Phase 1 on a Mac behaves exactly as before.
 
   python jarvis.py            run normally
   python jarvis.py --check    print selected backends without opening the mic
+  python jarvis.py --doctor   full environment readiness probe (no mic/model)
 
 Requirements: see requirements-*.txt
 Setup: see SETUP.md
@@ -243,6 +244,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    if "--check" in sys.argv[1:]:
+    args = sys.argv[1:]
+    if "--doctor" in args:
+        import doctor
+        sys.exit(doctor.run())
+    if "--check" in args:
         sys.exit(check())
     sys.exit(main())

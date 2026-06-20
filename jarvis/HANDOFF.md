@@ -35,6 +35,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | `tts.py` | TTS abstraction: macOS `say` / Linux `piper` (→ `espeak-ng` fallback). |
 | `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` stub. |
 | `llm.py` | LLM abstraction: `claude` (online) / `ollama` (offline) / `auto` fallback. |
+| `doctor.py` | Read-only environment readiness probe (`jarvis.py --doctor`). |
 | `memory.py` | SQLite memory module. Stores sessions + conversation turns. *(unchanged)* |
 | `aws_sync.py` | Pushes unsynced SQLite rows to DynamoDB on shutdown. *(unchanged)* |
 | `requirements-common.txt` | Cross-platform deps (faster-whisper, sounddevice, numpy, anthropic, boto3). |
@@ -74,7 +75,8 @@ cd jarvis/phase1
 source .venv/bin/activate
 python3 jarvis.py            # run normally
 python3 jarvis.py --check    # print selected backends, no mic/model — verify a new box
-python3 -m unittest test_backends -v   # backend-selection tests
+python3 jarvis.py --doctor   # full readiness probe: Python, backends, API key, SQLite, AWS
+python3 -m unittest test_backends -v   # backend-selection + doctor tests
 ```
 
 ---
