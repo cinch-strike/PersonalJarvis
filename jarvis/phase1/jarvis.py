@@ -20,12 +20,12 @@ import sys
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
-import anthropic
 
 import memory
 import aws_sync
 import tts
 import input_trigger
+import llm
 import config
 
 # ─── Runtime state ────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ conversation_history = []
 session_id = None       # set in startup via memory.start_session()
 system_prompt = None    # base persona + recalled memory
 whisper_model = None
-claude_client = None
+llm_backend = None
 tts_backend = None
 
 
@@ -70,17 +70,15 @@ def transcribe(recorded_frames: list) -> str:
     return " ".join(segment.text for segment in segments).strip()
 
 
-def ask_claude(user_text: str) -> str:
-    """Send transcribed text to Claude and return response."""
+def ask_llm(user_text: str) -> str:
+    """Send transcribed text to the active LLM backend and return its response."""
     conversation_history.append({"role": "user", "content": user_text})
     memory.save_turn(session_id, "user", user_text)
-    response = claude_client.messages.create(
-        model=config.CLAUDE_MODEL,
-        max_tokens=600,
+    reply = llm_backend.generate(
         system=system_prompt,
         messages=conversation_history,
+        max_tokens=config.MAX_TOKENS,
     )
-    reply = response.content[0].text
     conversation_history.append({"role": "assistant", "content": reply})
     memory.save_turn(session_id, "assistant", reply)
     return reply
@@ -93,7 +91,7 @@ def process() -> None:
         print("  (nothing heard — try again)")
         return
     print(f"  You: {text}")
-    reply = ask_claude(text)
+    reply = ask_llm(text)
     speak(reply)
 
 
@@ -147,6 +145,14 @@ def check() -> int:
         ok = False
         print(f"   Input mode  : UNAVAILABLE — {e}")
 
+    try:
+        backend = llm.select_llm_backend(config.LLM_BACKEND)
+        status = "ready" if backend.available() else "NOT reachable now"
+        print(f"   LLM backend : {backend.name} ({status})")
+    except llm.LLMError as e:
+        ok = False
+        print(f"   LLM backend : UNAVAILABLE — {e}")
+
     print(f"   Claude model: {config.CLAUDE_MODEL}")
     print(f"   Whisper     : {config.WHISPER_MODEL}")
     print(f"\n   {'✅ All selected backends instantiated.' if ok else '❌ One or more backends unavailable.'}\n")
@@ -156,7 +162,7 @@ def check() -> int:
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    global whisper_model, claude_client, tts_backend, session_id, system_prompt
+    global whisper_model, llm_backend, tts_backend, session_id, system_prompt
 
     print("\n⚡ Jarvis Phase 1 starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
@@ -171,10 +177,15 @@ def main() -> int:
         return 1
 
     try:
-        claude_client = anthropic.Anthropic()
-    except Exception as e:
-        print(f"\n❌ Failed to init Anthropic client: {e}")
-        print("   Make sure ANTHROPIC_API_KEY is set in your environment.")
+        llm_backend = llm.select_llm_backend(config.LLM_BACKEND)
+        if not llm_backend.available():
+            print(f"\n❌ No usable LLM backend ({llm_backend.name}).")
+            print("   Set ANTHROPIC_API_KEY, or run Ollama and set "
+                  "JARVIS_LLM_BACKEND=ollama.")
+            return 1
+        print(f"   LLM backend: {llm_backend.name}")
+    except llm.LLMError as e:
+        print(f"\n❌ LLM unavailable: {e}")
         return 1
 
     try:

@@ -7,6 +7,12 @@
 #   (piper: see https://github.com/rhasspy/piper for the binary + a voice model)
 #
 # Set JARVIS_PIPER_MODEL to your downloaded .onnx voice when using piper.
+#
+# Offline LLM (Phase 3.5): install Ollama as a system service and pull a model,
+# then set JARVIS_LLM_BACKEND=ollama (or leave "auto" for Claude-with-fallback):
+#   curl -fsSL https://ollama.com/install.sh | sh
+#   ollama pull llama3.1
+#   (the Ollama backend uses stdlib HTTP — no extra pip package needed)
 -r requirements-common.txt
 pynput            # push-to-talk listener (until wake_word lands in Phase 2)
 # pvporcupine     # wake-word engine — uncomment when Phase 2 wake_word is built

@@ -15,6 +15,10 @@ Env vars:
                          Default "push_to_talk".
   JARVIS_PIPER_MODEL     Path to a piper .onnx voice (Linux/piper only).
   JARVIS_PIPER_RATE      piper playback sample rate. Default 22050.
+  JARVIS_LLM_BACKEND     LLM selection (auto|claude|ollama). Default "auto"
+                         (Claude when reachable, else Ollama offline).
+  JARVIS_OLLAMA_MODEL    Ollama model tag. Default "llama3.1".
+  JARVIS_OLLAMA_HOST     Ollama server URL. Default "http://localhost:11434".
 """
 
 import os
@@ -29,6 +33,14 @@ CLAUDE_MODEL = os.environ.get("JARVIS_CLAUDE_MODEL", "claude-opus-4-8")
 # Backend selection (consumed by tts.py / input.py). None means auto-detect.
 TTS_BACKEND = os.environ.get("JARVIS_TTS_BACKEND") or None
 INPUT_MODE = os.environ.get("JARVIS_INPUT_MODE", "push_to_talk")
+
+# LLM backend (consumed by llm.py). "auto" = Claude online, fall back to Ollama.
+LLM_BACKEND = os.environ.get("JARVIS_LLM_BACKEND", "auto")
+OLLAMA_MODEL = os.environ.get("JARVIS_OLLAMA_MODEL", "llama3.1")
+OLLAMA_HOST = os.environ.get("JARVIS_OLLAMA_HOST", "http://localhost:11434")
+
+# How many tokens Jarvis may generate per reply.
+MAX_TOKENS = int(os.environ.get("JARVIS_MAX_TOKENS", "600"))
 
 SYSTEM_PROMPT = (
     "You are Jarvis, a sharp and concise AI assistant. "

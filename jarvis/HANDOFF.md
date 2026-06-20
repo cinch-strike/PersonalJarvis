@@ -21,7 +21,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
 | 2 | Always-on Raspberry Pi hub | ⏳ Hardware arrived — not yet set up |
 | 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — not yet end-to-end tested |
-| 3.5 | Offline/local LLM via Ollama | 📋 Planned |
+| 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto) — needs Ollama installed + tested on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
 
 ---
@@ -34,6 +34,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | `config.py` | **All config in one place**, read from env vars with Mac-default fallbacks. |
 | `tts.py` | TTS abstraction: macOS `say` / Linux `piper` (→ `espeak-ng` fallback). |
 | `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` stub. |
+| `llm.py` | LLM abstraction: `claude` (online) / `ollama` (offline) / `auto` fallback. |
 | `memory.py` | SQLite memory module. Stores sessions + conversation turns. *(unchanged)* |
 | `aws_sync.py` | Pushes unsynced SQLite rows to DynamoDB on shutdown. *(unchanged)* |
 | `requirements-common.txt` | Cross-platform deps (faster-whisper, sounddevice, numpy, anthropic, boto3). |
@@ -55,6 +56,10 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_SAMPLE_RATE` | `16000` | Mic sample rate (Hz) |
 | `JARVIS_PIPER_MODEL` | — | Path to piper `.onnx` voice (Linux/piper only) |
 | `JARVIS_PIPER_RATE` | `22050` | piper playback sample rate |
+| `JARVIS_LLM_BACKEND` | `auto` | LLM: `auto` (Claude→Ollama fallback) \| `claude` \| `ollama` |
+| `JARVIS_OLLAMA_MODEL` | `llama3.1` | Ollama model tag (offline) |
+| `JARVIS_OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
+| `JARVIS_MAX_TOKENS` | `600` | Max tokens per reply |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its

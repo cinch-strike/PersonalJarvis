@@ -9,6 +9,7 @@ from unittest import mock
 
 import tts
 import input_trigger
+import llm
 
 
 def _which_all(_binary):
@@ -101,6 +102,86 @@ class TestInputSelection(unittest.TestCase):
             input_trigger.select_input_trigger(
                 "telepathy", self._noop, self._noop, self._noop
             )
+
+
+class _Stub(llm.LLMBackend):
+    """Configurable test double for FallbackLLM behaviour."""
+
+    def __init__(self, name, available=True, reply=None, fail=False):
+        self.name = name
+        self._available = available
+        self._reply = reply
+        self._fail = fail
+        self.calls = 0
+
+    def available(self):
+        return self._available
+
+    def generate(self, system, messages, max_tokens):
+        self.calls += 1
+        if self._fail:
+            raise llm.LLMError(f"{self.name} boom")
+        return self._reply
+
+
+class TestLLMSelection(unittest.TestCase):
+    def test_select_claude(self):
+        self.assertIsInstance(llm.select_llm_backend("claude"), llm.ClaudeBackend)
+
+    def test_select_ollama(self):
+        self.assertIsInstance(llm.select_llm_backend("ollama"), llm.OllamaBackend)
+
+    def test_select_auto_is_fallback_claude_then_ollama(self):
+        backend = llm.select_llm_backend("auto")
+        self.assertIsInstance(backend, llm.FallbackLLM)
+        self.assertEqual(
+            [b.name for b in backend.backends], ["claude", "ollama"]
+        )
+
+    def test_unknown_mode_raises(self):
+        with self.assertRaises(llm.LLMError):
+            llm.select_llm_backend("gpt")
+
+    def test_claude_available_tracks_api_key(self):
+        backend = llm.ClaudeBackend()
+        with mock.patch.dict("os.environ", {"ANTHROPIC_API_KEY": "x"}):
+            self.assertTrue(backend.available())
+        with mock.patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(backend.available())
+
+
+class TestFallbackLLM(unittest.TestCase):
+    def test_uses_first_available(self):
+        primary = _Stub("claude", available=True, reply="hi from claude")
+        secondary = _Stub("ollama", available=True, reply="hi from ollama")
+        fb = llm.FallbackLLM([primary, secondary])
+        self.assertEqual(fb.generate("sys", [], 10), "hi from claude")
+        self.assertEqual(secondary.calls, 0)  # never reached
+
+    def test_skips_unavailable_primary(self):
+        primary = _Stub("claude", available=False)
+        secondary = _Stub("ollama", available=True, reply="offline reply")
+        fb = llm.FallbackLLM([primary, secondary])
+        self.assertEqual(fb.generate("sys", [], 10), "offline reply")
+        self.assertEqual(primary.calls, 0)
+
+    def test_falls_back_when_primary_errors(self):
+        primary = _Stub("claude", available=True, fail=True)
+        secondary = _Stub("ollama", available=True, reply="rescued")
+        fb = llm.FallbackLLM([primary, secondary])
+        self.assertEqual(fb.generate("sys", [], 10), "rescued")
+        self.assertEqual(primary.calls, 1)
+
+    def test_all_fail_raises(self):
+        primary = _Stub("claude", available=True, fail=True)
+        secondary = _Stub("ollama", available=False)
+        fb = llm.FallbackLLM([primary, secondary])
+        with self.assertRaises(llm.LLMError):
+            fb.generate("sys", [], 10)
+
+    def test_empty_raises(self):
+        with self.assertRaises(llm.LLMError):
+            llm.FallbackLLM([])
 
 
 if __name__ == "__main__":
