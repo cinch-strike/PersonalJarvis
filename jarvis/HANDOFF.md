@@ -20,7 +20,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 |-------|-------------|--------|
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
 | 2 | Always-on Raspberry Pi hub | ⏳ Hardware arrived — not yet set up |
-| 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — not yet end-to-end tested |
+| 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested (memory + sync); live DynamoDB round-trip still pending |
 | 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto) — needs Ollama installed + tested on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
 
@@ -41,7 +41,9 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | `requirements-common.txt` | Cross-platform deps (faster-whisper, sounddevice, numpy, anthropic, boto3). |
 | `requirements-mac.txt` | Mac extras (pynput); `say` is built in. `requirements.txt` aliases this. |
 | `requirements-pi.txt` | Pi/Linux notes (apt: espeak-ng, alsa-utils, piper). |
-| `test_backends.py` | Unit tests for TTS + input backend selection (mocks `platform.system()`). |
+| `test_backends.py` | Unit tests for TTS/input/LLM selection + doctor (mocks `platform.system()`). |
+| `test_memory.py` | Unit tests for SQLite memory (temp-DB round-trips). |
+| `test_aws_sync.py` | Unit tests for DynamoDB sync (faked table; graceful-failure contract). |
 
 ### Platform portability (Phase 2 prep)
 TTS and the recording trigger are chosen at startup by OS, overridable via env.
@@ -76,7 +78,7 @@ source .venv/bin/activate
 python3 jarvis.py            # run normally
 python3 jarvis.py --check    # print selected backends, no mic/model — verify a new box
 python3 jarvis.py --doctor   # full readiness probe: Python, backends, API key, SQLite, AWS
-python3 -m unittest test_backends -v   # backend-selection + doctor tests
+python3 -m unittest discover -p 'test_*.py'   # full test suite (backends, memory, sync, doctor)
 ```
 
 ---
