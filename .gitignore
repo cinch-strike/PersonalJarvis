@@ -20,5 +20,8 @@ __pycache__/
 # VS Code
 .vscode/
 
+# SQLite databases
+*.db
+
 # Logs
 *.log

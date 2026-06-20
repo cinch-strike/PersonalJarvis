@@ -17,6 +17,9 @@ from faster_whisper import WhisperModel
 import anthropic
 from pynput import keyboard
 
+import memory
+import aws_sync
+
 # ─── Config (edit these) ──────────────────────────────────────────────────────
 
 WHISPER_MODEL = "base"      # "base" (~150MB) | "small" (~500MB, more accurate)
@@ -35,6 +38,22 @@ SYSTEM_PROMPT = (
 recording = False
 frames = []
 conversation_history = []
+session_id = None  # set in startup via memory.start_session()
+
+
+def build_system_prompt() -> str:
+    """Base persona + any recalled memory from prior sessions."""
+    recent = memory.load_recent_turns(n=20)
+    if not recent:
+        return SYSTEM_PROMPT
+    lines = [f"{turn['role']}: {turn['content']}" for turn in recent]
+    recalled = "\n".join(lines)
+    return (
+        f"{SYSTEM_PROMPT}\n\n"
+        "Here is the most recent prior conversation for context "
+        "(use it to stay consistent; do not repeat it back verbatim):\n"
+        f"{recalled}"
+    )
 
 
 def speak(text: str) -> None:
@@ -55,14 +74,16 @@ def transcribe(recorded_frames: list) -> str:
 def ask_claude(user_text: str) -> str:
     """Send transcribed text to Claude and return response."""
     conversation_history.append({"role": "user", "content": user_text})
+    memory.save_turn(session_id, "user", user_text)
     response = claude_client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=600,
-        system=SYSTEM_PROMPT,
+        system=system_prompt,
         messages=conversation_history,
     )
     reply = response.content[0].text
     conversation_history.append({"role": "assistant", "content": reply})
+    memory.save_turn(session_id, "assistant", reply)
     return reply
 
 
@@ -120,6 +141,11 @@ except Exception as e:
     print("   Make sure ANTHROPIC_API_KEY is set in your environment.")
     sys.exit(1)
 
+# Open a memory session and fold any recalled history into the system prompt.
+session_id = memory.start_session()
+system_prompt = build_system_prompt()
+print(f"   Memory session #{session_id} started.")
+
 print("\n✅ Ready.\n")
 print("   Hold SPACE → talk → release to get a response")
 print("   ESC to quit\n")
@@ -135,3 +161,19 @@ with sd.InputStream(
 ):
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
+
+# ─── Shutdown ────────────────────────────────────────────────────────────────
+# Reached after ESC stops the listener. Close out the session and push memory
+# to the cloud — both are best-effort and must not crash on the way out.
+print("\n   Shutting down...")
+try:
+    memory.close_session(session_id)
+except Exception as e:
+    print(f"   (warning: could not close memory session: {e})")
+
+try:
+    aws_sync.sync_to_dynamodb()
+except Exception as e:
+    print(f"   (warning: cloud sync skipped: {e})")
+
+print("   Goodbye.\n")
