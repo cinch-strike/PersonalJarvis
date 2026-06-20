@@ -11,10 +11,10 @@ Skeleton breadboard circuits first, 3D printed enclosure last.
 
 | # | Item | Notes | Est. Cost NZD | ✓ |
 |---|------|-------|---------------|---|
-| 1 | Raspberry Pi 5 (8GB) | The always-on Jarvis brain | $363.69 | [ ] |
+| 1 | Raspberry Pi 5 (8GB) | The always-on Jarvis brain | $363.69 | [x] |
 | 2 | Pi 5 Official 27W USB-C PSU | Must be official — Pi 5 is fussy about power | $24.90 | [ ] |
-| 3 | SanDisk Extreme 64GB microSDXC (A2, V30, U3) | A2 rating matters for OS responsiveness. 170MB/s read. | $67.85 | [ ] |
-| 4 | Pi 5 Active Cooler | Runs hot under Whisper load — not optional | $9.75 | [ ] |
+| 3 | SanDisk Extreme 64GB microSDXC (A2, V30, U3) | A2 rating matters for OS responsiveness. 170MB/s read. | $67.85 | [x] |
+| 4 | Pi 5 Active Cooler | Runs hot under Whisper load — not optional | $9.75 | [x] |
 
 ---
 
@@ -25,7 +25,7 @@ Skeleton breadboard circuits first, 3D printed enclosure last.
 
 | # | Item | Notes | Est. Cost NZD | ✓ |
 |---|------|-------|---------------|---|
-| 5 | ReSpeaker Mic Array v2.0 | 4-mic far-field array, beamforming, XMOS XVF-3000, plug-and-play USB. 12 RGB LEDs. | $129.06 | [ ] |
+| 5 | ReSpeaker Mic Array v2.0 | 4-mic far-field array, beamforming, XMOS XVF-3000, plug-and-play USB. 12 RGB LEDs. | $129.06 | [x] |
 
 ---
 
@@ -35,12 +35,25 @@ Skeleton breadboard circuits first, 3D printed enclosure last.
 
 | # | Item | Notes | Est. Cost NZD | ✓ |
 |---|------|-------|---------------|---|
-| 6 | Creative Pebble V3 speaker | USB-C powered, Bluetooth 5.0. Ordered via Ubuy NZ (incl. shipping). | $220.00 | [ ] |
+| 6 | Creative Pebble V3 speaker | USB-C powered, Bluetooth 5.0. Ordered via Ubuy NZ (incl. shipping). | $220.00 | [x] |
 | 7 | USB-A to USB-A Cable 0.5m (5-pack) | ReSpeaker to Pi | $23.90 | [ ] |
 | 8 | USB-C to USB-C Cable 1m | Speaker to Pi | $29.90 | [ ] |
 | 9 | Cat6 Patch Cable 0.5m | Wired is more reliable than WiFi for Pi | $7.30 | [ ] |
 
 > Note: Jaycar is also great for breadboards, jumper wires, LEDs, and any other prototyping gear you want on the desk. Worth a browse while you're there.
+
+---
+
+## Stage 3.5 — Offline LLM Acceleration *(optional — for Phase 3.5)*
+
+**Where to buy: PB Tech or Element14 NZ**
+
+| # | Item | Notes | Est. Cost NZD | ✓ |
+|---|------|-------|---------------|---|
+| 3.5a | Hailo-8L AI HAT+ for Pi 5 | M.2 HAT that adds dedicated AI inference chip. Dramatically faster than CPU-only Ollama on Pi. 13 TOPS. | ~$110–130 | [ ] |
+| 3.5b | M.2 HAT+ (if not included) | Some bundles include, some don't — check what comes with Hailo | ~$15 | [ ] |
+
+> Without the Hailo HAT, Ollama will still run on Pi 5 CPU but responses will be slow (10–30s for small models). The HAT makes it usable in real-time. Skip if budget is tight — can add later.
 
 ---
 

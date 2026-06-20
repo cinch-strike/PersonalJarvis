@@ -35,6 +35,16 @@
 
 ---
 
+## Phase 3.5 — Offline / Local LLM Mode
+*Jarvis works without internet*
+- Ollama installed on Pi 5 running a small local model (llama 3.2 3B or phi-3 mini)
+- Jarvis uses Claude API when online (better quality), falls back to Ollama automatically when offline
+- Same conversation/memory system — local model picks up from SQLite context
+- Optional hardware: Hailo-8L AI HAT+ for Pi 5 (M.2 slot, dedicated inference chip, ~$70 USD) — significant speed boost for local models
+- Enables fully self-contained, internet-independent Jarvis for travel, power cuts, privacy
+
+---
+
 ## Phase 4 — Life Admin Integrations
 *Jarvis as personal assistant*
 - Calendar: read, create, remind
@@ -115,7 +125,7 @@
 |---------|---------|--------|
 | Memory storage | None | AWS DynamoDB + local SQLite |
 | STT | faster-whisper (local) | Keep local for privacy |
-| LLM | Claude API | Claude API (upgrade models as released) |
+| LLM | Claude API | Claude API online, Ollama (local) offline |
 | TTS | macOS `say` | ElevenLabs or local TTS for better voice |
 | Vision | Not yet | Claude Vision API + local camera |
 | Wake word | Not yet | Porcupine (custom "Hey Jarvis") |
