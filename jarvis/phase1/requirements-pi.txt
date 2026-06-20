@@ -1,0 +1,12 @@
+# Raspberry Pi / Linux (Phase 2) deps. Install with:
+#   pip install -r requirements-common.txt -r requirements-pi.txt
+#
+# TTS: install the `piper-tts` binary (preferred) or `espeak-ng` as a fallback,
+#      plus ALSA's `aplay`, via apt — these are system packages, not pip:
+#   sudo apt install espeak-ng alsa-utils
+#   (piper: see https://github.com/rhasspy/piper for the binary + a voice model)
+#
+# Set JARVIS_PIPER_MODEL to your downloaded .onnx voice when using piper.
+-r requirements-common.txt
+pynput            # push-to-talk listener (until wake_word lands in Phase 2)
+# pvporcupine     # wake-word engine — uncomment when Phase 2 wake_word is built

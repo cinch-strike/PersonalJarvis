@@ -1,6 +1,5 @@
-faster-whisper
-sounddevice
-numpy
-anthropic
-pynput
-boto3
+# Backwards-compatible default = macOS (Phase 1).
+# New code should install the platform-specific set directly:
+#   Mac: pip install -r requirements-common.txt -r requirements-mac.txt
+#   Pi : pip install -r requirements-common.txt -r requirements-pi.txt
+-r requirements-mac.txt

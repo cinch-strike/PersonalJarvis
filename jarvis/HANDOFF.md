@@ -30,22 +30,46 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 
 | File | Purpose |
 |------|---------|
-| `jarvis.py` | Main voice loop. Hold SPACE to record, ESC to quit. |
-| `memory.py` | SQLite memory module. Stores sessions + conversation turns. |
-| `aws_sync.py` | Pushes unsynced SQLite rows to DynamoDB on shutdown. Fails gracefully. |
-| `requirements.txt` | faster-whisper, sounddevice, numpy, anthropic, pynput, boto3 |
+| `jarvis.py` | Main voice loop. Hold SPACE to record, ESC to quit. Guarded `__main__` (safe to import). Supports `--check`. |
+| `config.py` | **All config in one place**, read from env vars with Mac-default fallbacks. |
+| `tts.py` | TTS abstraction: macOS `say` / Linux `piper` (→ `espeak-ng` fallback). |
+| `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` stub. |
+| `memory.py` | SQLite memory module. Stores sessions + conversation turns. *(unchanged)* |
+| `aws_sync.py` | Pushes unsynced SQLite rows to DynamoDB on shutdown. *(unchanged)* |
+| `requirements-common.txt` | Cross-platform deps (faster-whisper, sounddevice, numpy, anthropic, boto3). |
+| `requirements-mac.txt` | Mac extras (pynput); `say` is built in. `requirements.txt` aliases this. |
+| `requirements-pi.txt` | Pi/Linux notes (apt: espeak-ng, alsa-utils, piper). |
+| `test_backends.py` | Unit tests for TTS + input backend selection (mocks `platform.system()`). |
 
-### Key config in `jarvis.py`
-- `WHISPER_MODEL = "base"` — local STT, no internet needed
-- `VOICE = "Daniel"` — macOS TTS voice
-- `CLAUDE_MODEL = "claude-opus-4-6"` — upgrade as new models release
+### Platform portability (Phase 2 prep)
+TTS and the recording trigger are chosen at startup by OS, overridable via env.
+Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all optional):
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `JARVIS_TTS_BACKEND` | auto (Darwin→`say`, Linux→`piper`/`espeak`) | Force a TTS backend: `say` \| `piper` \| `espeak` |
+| `JARVIS_INPUT_MODE` | `push_to_talk` | Recording trigger: `push_to_talk` \| `wake_word` (stub) |
+| `JARVIS_CLAUDE_MODEL` | `claude-opus-4-8` | Claude model id |
+| `JARVIS_VOICE` | `Daniel` | macOS `say` voice |
+| `JARVIS_WHISPER_MODEL` | `base` | Whisper model size |
+| `JARVIS_SAMPLE_RATE` | `16000` | Mic sample rate (Hz) |
+| `JARVIS_PIPER_MODEL` | — | Path to piper `.onnx` voice (Linux/piper only) |
+| `JARVIS_PIPER_RATE` | `22050` | piper playback sample rate |
+
+**On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
+a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its
+model is missing, Jarvis auto-falls back to `espeak-ng`. Wake word is not built yet —
+keep `JARVIS_INPUT_MODE=push_to_talk` until Phase 2.
+
 - Python **3.11** only — 3.14 has compatibility issues with faster-whisper
 
 ### Running Jarvis
 ```bash
 cd jarvis/phase1
 source .venv/bin/activate
-python3 jarvis.py
+python3 jarvis.py            # run normally
+python3 jarvis.py --check    # print selected backends, no mic/model — verify a new box
+python3 -m unittest test_backends -v   # backend-selection tests
 ```
 
 ---
@@ -76,8 +100,8 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 | SanDisk 64GB microSD | ✅ Arrived |
 | ReSpeaker Mic Array v2.0 | ✅ Arrived |
 | Creative Pebble V3 Speaker | ✅ Arrived |
-| Pi 5 Official 27W USB-C PSU | ❓ Confirm with Donnie |
-| USB cables + Cat6 | ❓ Confirm with Donnie |
+| Pi 5 Official 27W USB-C PSU | ✅ Arrived |
+| USB cables + Cat6 | ✅ Arrived |
 | Hailo-8L AI HAT+ (optional) | Not yet ordered — for Phase 3.5 offline LLM |
 | Bambu Lab P2S Combo 3D Printer | Not yet ordered |
 

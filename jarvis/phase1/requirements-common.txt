@@ -1,0 +1,7 @@
+# Cross-platform Jarvis deps (Mac + Pi).
+# Install with: pip install -r requirements-common.txt
+faster-whisper
+sounddevice
+numpy
+anthropic
+boto3

@@ -1,0 +1,6 @@
+# macOS (Phase 1) deps. Install with:
+#   pip install -r requirements-common.txt -r requirements-mac.txt
+#
+# TTS uses the built-in `say` command (no package needed).
+-r requirements-common.txt
+pynput            # SPACE push-to-talk listener
