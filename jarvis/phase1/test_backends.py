@@ -25,7 +25,9 @@ def _which_none(_binary):
 
 class TestTTSSelection(unittest.TestCase):
     def test_darwin_selects_say(self):
-        backend = tts.select_tts_backend("Daniel", system="Darwin")
+        # Mock `which` so the test is OS-independent (no `say` binary on Linux CI).
+        with mock.patch("shutil.which", side_effect=_which_all):
+            backend = tts.select_tts_backend("Daniel", system="Darwin")
         self.assertIsInstance(backend, tts.MacSayTTS)
         self.assertEqual(backend.name, "say")
         self.assertEqual(backend.voice, "Daniel")
