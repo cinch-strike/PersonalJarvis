@@ -36,16 +36,17 @@ class Check:
 
 
 def check_python() -> Check:
+    # 3.11–3.13 are confirmed working (Pi runs 3.13.5 with faster-whisper fine).
+    # 3.14+ has known faster-whisper issues; <3.11 is untested.
     v = sys.version_info
     ver = f"{v.major}.{v.minor}.{v.micro}"
-    if (v.major, v.minor) == (3, 11):
+    if (3, 11) <= (v.major, v.minor) <= (3, 13):
         return Check("Python", OK, ver)
-    if (3, 9) <= (v.major, v.minor) < (3, 14):
-        return Check("Python", WARN, f"{ver} — project targets 3.11 (3.11 recommended)")
-    return Check(
-        "Python", WARN,
-        f"{ver} — 3.14+ has known faster-whisper issues; use 3.11",
-    )
+    if (v.major, v.minor) >= (3, 14):
+        return Check(
+            "Python", WARN, f"{ver} — 3.14+ has known faster-whisper issues; use 3.11–3.13"
+        )
+    return Check("Python", WARN, f"{ver} — untested; project targets 3.11–3.13")
 
 
 def check_tts() -> Check:
@@ -106,14 +107,19 @@ def check_sqlite() -> Check:
 
 
 def check_aws() -> Check:
-    """Best-effort DynamoDB reachability via aws_sync's table/region/profile."""
+    """Verify AWS credentials resolve for the sync profile.
+
+    We deliberately do NOT call describe_table/list_tables: JarvisMemoryPolicy
+    grants only PutItem (read/describe are denied by design), so probing the
+    table would report a false failure. Jarvis only ever calls PutItem, so a
+    resolvable credential is the right-sized readiness signal here.
+    """
     import aws_sync
     if not aws_sync._BOTO3_AVAILABLE:
         return Check("AWS DynamoDB", WARN, "boto3 not installed — cloud sync disabled")
     try:
         import boto3
-        from botocore.config import Config
-        from botocore.exceptions import ClientError, BotoCoreError
+        from botocore.exceptions import BotoCoreError
 
         session = boto3.session.Session(
             region_name=aws_sync.AWS_REGION, profile_name=aws_sync.AWS_PROFILE
@@ -124,30 +130,13 @@ def check_aws() -> Check:
                 f"no credentials for profile '{aws_sync.AWS_PROFILE}' — "
                 "run: aws configure --profile jarvis",
             )
-        client = session.client(
-            "dynamodb",
-            config=Config(
-                connect_timeout=3, read_timeout=5, retries={"max_attempts": 1}
-            ),
-        )
-        resp = client.describe_table(TableName=aws_sync.TABLE_NAME)
-        tstatus = resp["Table"]["TableStatus"]
-        ok = tstatus == "ACTIVE"
         return Check(
-            "AWS DynamoDB",
-            OK if ok else WARN,
-            f"{aws_sync.TABLE_NAME} @ {aws_sync.AWS_REGION} ({tstatus})",
+            "AWS DynamoDB", OK,
+            f"credentials OK for {aws_sync.TABLE_NAME} @ {aws_sync.AWS_REGION} "
+            "(PutItem-only policy; table not probed)",
         )
-    except ClientError as e:
-        code = e.response.get("Error", {}).get("Code", "")
-        if code == "ResourceNotFoundException":
-            return Check(
-                "AWS DynamoDB", FAIL,
-                f"table '{aws_sync.TABLE_NAME}' not found in {aws_sync.AWS_REGION}",
-            )
-        return Check("AWS DynamoDB", WARN, f"reachability check failed: {e}")
     except (BotoCoreError, Exception) as e:  # noqa: BLE001 — doctor must not crash
-        return Check("AWS DynamoDB", WARN, f"could not reach DynamoDB: {e}")
+        return Check("AWS DynamoDB", WARN, f"could not resolve AWS credentials: {e}")
 
 
 # Order matters only for display.

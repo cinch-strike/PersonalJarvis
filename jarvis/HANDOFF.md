@@ -69,7 +69,7 @@ a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or
 model is missing, Jarvis auto-falls back to `espeak-ng`. Wake word is not built yet —
 keep `JARVIS_INPUT_MODE=push_to_talk` until Phase 2.
 
-- Python **3.11** only — 3.14 has compatibility issues with faster-whisper
+- Python **3.11–3.13** work (Pi confirmed on 3.13.5 with faster-whisper 1.2.1) — avoid **3.14+** (faster-whisper issues)
 
 ### Running Jarvis
 ```bash

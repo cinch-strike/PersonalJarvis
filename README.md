@@ -59,7 +59,7 @@ jarvis/
 
 ```bash
 cd jarvis/phase1
-python3.11 -m venv .venv                       # Python 3.11 (3.14 breaks faster-whisper)
+python3.11 -m venv .venv                       # Python 3.11–3.13 work; avoid 3.14 (breaks faster-whisper)
 .venv/bin/python -m pip install -r requirements-common.txt -r requirements-mac.txt
 export ANTHROPIC_API_KEY=sk-...                # required for Claude
 .venv/bin/python jarvis.py --doctor            # verify environment, no mic needed
