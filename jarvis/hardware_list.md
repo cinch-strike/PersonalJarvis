@@ -12,7 +12,7 @@ Skeleton breadboard circuits first, 3D printed enclosure last.
 | # | Item | Notes | Est. Cost NZD | ✓ |
 |---|------|-------|---------------|---|
 | 1 | Raspberry Pi 5 (8GB) | The always-on Jarvis brain | $363.69 | [x] |
-| 2 | Pi 5 Official 27W USB-C PSU | Must be official — Pi 5 is fussy about power | $24.90 | [ ] |
+| 2 | Pi 5 Official 27W USB-C PSU | Must be official — Pi 5 is fussy about power | $24.90 | [x] |
 | 3 | SanDisk Extreme 64GB microSDXC (A2, V30, U3) | A2 rating matters for OS responsiveness. 170MB/s read. | $67.85 | [x] |
 | 4 | Pi 5 Active Cooler | Runs hot under Whisper load — not optional | $9.75 | [x] |
 
@@ -36,9 +36,9 @@ Skeleton breadboard circuits first, 3D printed enclosure last.
 | # | Item | Notes | Est. Cost NZD | ✓ |
 |---|------|-------|---------------|---|
 | 6 | Creative Pebble V3 speaker | USB-C powered, Bluetooth 5.0. Ordered via Ubuy NZ (incl. shipping). | $220.00 | [x] |
-| 7 | USB-A to USB-A Cable 0.5m (5-pack) | ReSpeaker to Pi | $23.90 | [ ] |
-| 8 | USB-C to USB-C Cable 1m | Speaker to Pi | $29.90 | [ ] |
-| 9 | Cat6 Patch Cable 0.5m | Wired is more reliable than WiFi for Pi | $7.30 | [ ] |
+| 7 | USB-A to USB-A Cable 0.5m (5-pack) | ReSpeaker to Pi | $23.90 | [x] |
+| 8 | USB-C to USB-C Cable 1m | Speaker to Pi | $29.90 | [x] |
+| 9 | Cat6 Patch Cable 0.5m | Wired is more reliable than WiFi for Pi | $7.30 | [x] |
 
 > Note: Jaycar is also great for breadboards, jumper wires, LEDs, and any other prototyping gear you want on the desk. Worth a browse while you're there.
 
@@ -63,7 +63,7 @@ Skeleton breadboard circuits first, 3D printed enclosure last.
 
 | # | Item | Notes | Est. Cost NZD | ✓ |
 |---|------|-------|---------------|---|
-| 10 | Full-size breadboard | For testing circuits before committing | ~$10 | [ ] |
+| 10 | Full-size breadboard | For testing circuits before committing | ~$10 | [x] |
 | 11 | Jumper wire kit (M-M, M-F, F-F) | Essential for breadboard prototyping | ~$12 | [ ] |
 | 12 | LED assortment + 330Ω resistors | Status indicators — Jarvis needs a glow | ~$8 | [ ] |
 | 13 | Small relay module (5V) | For any future power switching projects | ~$10 | [ ] |

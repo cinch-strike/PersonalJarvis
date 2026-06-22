@@ -19,9 +19,9 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
-| 2 | Always-on Raspberry Pi hub | ⏳ Hardware arrived — not yet set up |
-| 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested (memory + sync); live DynamoDB round-trip still pending |
-| 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto) — needs Ollama installed + tested on Pi |
+| 2 | Always-on Raspberry Pi hub | 🔧 Pi base built (8/9 — see Pi Bring-Up below); software fully portable & `--doctor` green on Pi. **Blocked on USB data cable for audio + wake-word still to build.** |
+| 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested; live DynamoDB write verified from the Pi (`put-item`) |
+| 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto). Pi confirms `auto` reachable. Ollama not yet installed on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
 
 ---
@@ -30,7 +30,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 
 | File | Purpose |
 |------|---------|
-| `jarvis.py` | Main voice loop. Hold SPACE to record, ESC to quit. Guarded `__main__` (safe to import). Supports `--check`. |
+| `jarvis.py` | Main voice loop. Hold SPACE to record, ESC to quit. Guarded `__main__` (safe to import). Flags: `--check`, `--doctor`. |
 | `config.py` | **All config in one place**, read from env vars with Mac-default fallbacks. |
 | `tts.py` | TTS abstraction: macOS `say` / Linux `piper` (→ `espeak-ng` fallback). |
 | `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` stub. |
@@ -81,6 +81,12 @@ python3 jarvis.py --doctor   # full readiness probe: Python, backends, API key, 
 python3 -m unittest discover -p 'test_*.py'   # full test suite (backends, memory, sync, doctor)
 ```
 
+### Repo tooling (added this session)
+- **Root `README.md`** — project overview, portability matrix, quickstart.
+- **Root `Makefile`** — `make doctor | check | test | run | install | clean` (run from repo root).
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) — runs the full 44-test suite on every push/PR to `main`. Currently green.
+- All tests are pure software (no mic/model/AWS needed) so they run anywhere.
+
 ---
 
 ## AWS Setup
@@ -98,6 +104,8 @@ python3 -m unittest discover -p 'test_*.py'   # full test suite (backends, memor
 
 The `jarvis-local` IAM access keys were generated during setup — Donnie has them saved. If lost, generate new ones: AWS Console → IAM → Users → jarvis-local → Security credentials → Create access key.
 
+> **Policy is `PutItem`-only by design** — `ListTables`/`DescribeTable`/reads are denied. Jarvis only writes (`PutItem`), so that's all the policy grants. Verify connectivity with a real `put-item`, **not** `list-tables` (which will fail with AccessDenied). `jarvis.py --doctor` knows this — it checks that credentials resolve and does **not** probe the table. A harmless test row sits at `session_id=0` in `jarvis-memory` from the Pi connectivity test.
+
 ---
 
 ## Hardware Status
@@ -110,25 +118,42 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 | ReSpeaker Mic Array v2.0 | ✅ Arrived |
 | Creative Pebble V3 Speaker | ✅ Arrived |
 | Pi 5 Official 27W USB-C PSU | ✅ Arrived |
-| USB cables + Cat6 | ✅ Arrived |
+| USB cables + Cat6 | ✅ Arrived (but all USB cables tried are **charge-only** — see below) |
+| USB-A→Micro-B **data** cable (Vention CTIBH, PB Tech VNT1231) | 🛒 Ordered — needed to connect the ReSpeaker |
+| Jackson PT1055 10-outlet surge powerboard | 🛒 Ordered — proper Pi power |
 | Hailo-8L AI HAT+ (optional) | Not yet ordered — for Phase 3.5 offline LLM |
 | Bambu Lab P2S Combo 3D Printer | Not yet ordered |
 
 ---
 
+## Pi Bring-Up Status (Day 1) — see `PI_SETUP_DAY1.md` for the full guide
+
+**8 of 9 steps done.** The Pi (`jarvis@jarvis.local`, on WiFi for now) has a known-good base: OS flashed, SSH, updated, deps, code cloned, venv, credentials. Confirmed:
+- **Python 3.13.5** — faster-whisper 1.2.1 imports fine (`core ok`). The old "3.11 only" worry is moot.
+- **AWS** — verified by a real `put-item` write to `jarvis-memory` (the policy denies list/describe by design).
+- **`jarvis.py --doctor` on the Pi: all green** — Python ✅, TTS `espeak` ✅, input `push_to_talk` ✅, LLM `auto(claude→ollama)` reachable ✅, Anthropic key ✅, SQLite ✅, AWS ✅.
+
+**🟨 Blocked: Step 5 (audio).** Every USB cable on hand is charge-only (nothing in `dmesg`/`lsusb` when the ReSpeaker is plugged in). A real **USB-A→Micro-B data cable** is ordered (Vention CTIBH). When it arrives: plug in → `lsusb` (XMOS/Seeed should appear) → `arecord -l` → record/playback test. That also doubles as the final ReSpeaker board check. The ReSpeaker board is **unconfirmed** until then.
+> Note: `--doctor` green ≠ audio proven. Doctor checks backend *selection*, not actual mic capture / speaker playback — that's the blocked Step 5.
+
+---
+
 ## What's Next (immediate)
 
-1. **End-to-end test on personal Mac** — run `python3 jarvis.py`, have a conversation, ESC, verify DynamoDB has the turns
-2. **Set up Pi** — flash microSD with Raspberry Pi OS, configure, clone repo, install deps
-3. **Phase 2** — move Jarvis off Mac onto Pi with ReSpeaker + speaker + wake word
-4. **Phase 3.5** — install Ollama on Pi, wire up Claude-online / Ollama-offline fallback
+1. **When the data cable arrives → finish Step 5 audio** (record + playback test). Capture the mic card name (`arecord -l`) and output device (`aplay -l`) — these go into the Pi's config.
+2. **Build the wake word** (`WakeWordTrigger` in `input_trigger.py`, Porcupine) — the one remaining Phase 2 software piece. Best done on the Pi since it needs the live mic.
+3. **Natural voice (optional)** — install the `piper` binary + a voice model on the Pi and set `JARVIS_PIPER_MODEL`; doctor's TTS line flips from `espeak` to `piper`. (espeak works now, just robotic.)
+4. **Phase 3.5 (optional)** — install Ollama on the Pi (`ollama pull llama3.1`) for offline fallback; `JARVIS_LLM_BACKEND` already supports it.
+5. **Mac end-to-end test (optional)** — run `python3 jarvis.py` on the Mac, have a conversation, ESC, confirm turns land in DynamoDB.
+
+> **Before running anything on the Pi:** `cd ~/PersonalJarvis && git pull` to grab the latest, then `cd jarvis/phase1 && .venv/bin/python jarvis.py --doctor`.
 
 ---
 
 ## Conventions & Notes
 
 - Never paste API keys or AWS secrets in chat — terminal only
-- `.venv/` is gitignored — recreate on each machine with `python3.11 -m venv .venv`
+- `.venv/` is gitignored — recreate on each machine with `python3 -m venv .venv` (Python 3.11–3.13)
 - `jarvis_memory.db` is gitignored — local SQLite file, not committed
 - Whisper model downloads on first run (~150MB for "base") — normal to appear frozen
 - macOS accessibility permission required for pynput keyboard listener
@@ -136,4 +161,4 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 
 ---
 
-*Last updated: June 2026*
+*Last updated: 22 June 2026 — Phase 2 software portability complete (TTS/input/LLM abstractions, `--doctor`, tests, CI); Pi base built 8/9, audio blocked on USB data cable.*
