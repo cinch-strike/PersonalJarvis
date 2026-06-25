@@ -19,7 +19,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
-| 2 | Always-on Raspberry Pi hub | 🔧 Pi base built (8/9 — see Pi Bring-Up below); software fully portable & `--doctor` green on Pi. **Blocked on USB data cable for audio + wake-word still to build.** |
+| 2 | Always-on Raspberry Pi hub | 🔧 Hardware done (mic + speaker working). Wake word (`WakeWordTrigger`, Porcupine "Jarvis" + silence detection) **built** — needs a free Picovoice key + first run/tune on the Pi. |
 | 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested; live DynamoDB write verified from the Pi (`put-item`) |
 | 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto). Pi confirms `auto` reachable. Ollama not yet installed on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
@@ -33,7 +33,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | `jarvis.py` | Main voice loop. Hold SPACE to record, ESC to quit. Guarded `__main__` (safe to import). Flags: `--check`, `--doctor`. |
 | `config.py` | **All config in one place**, read from env vars with Mac-default fallbacks. |
 | `tts.py` | TTS abstraction: macOS `say` / Linux `piper` (→ `espeak-ng` fallback). |
-| `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` stub. |
+| `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` (Porcupine + silence detection). |
 | `llm.py` | LLM abstraction: `claude` (online) / `ollama` (offline) / `auto` fallback. |
 | `doctor.py` | Read-only environment readiness probe (`jarvis.py --doctor`). |
 | `memory.py` | SQLite memory module. Stores sessions + conversation turns. *(unchanged)* |
@@ -52,7 +52,14 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `JARVIS_TTS_BACKEND` | auto (Darwin→`say`, Linux→`piper`/`espeak`) | Force a TTS backend: `say` \| `piper` \| `espeak` |
-| `JARVIS_INPUT_MODE` | `push_to_talk` | Recording trigger: `push_to_talk` \| `wake_word` (stub) |
+| `JARVIS_INPUT_MODE` | `push_to_talk` | Recording trigger: `push_to_talk` (Mac) \| `wake_word` (Pi) |
+| `JARVIS_PORCUPINE_KEY` | — | Picovoice access key (free) — **required** for `wake_word` |
+| `JARVIS_WAKE_KEYWORD` | `jarvis` | Porcupine built-in keyword |
+| `JARVIS_AUDIO_DEVICE` | system default | sounddevice input device (index or name) — set to the ReSpeaker if needed |
+| `JARVIS_AUDIO_CHANNELS` | `1` | Capture channels |
+| `JARVIS_VAD_SILENCE` | `500` | RMS below this = silence. Lower if it cuts you off; raise if it never stops |
+| `JARVIS_VAD_SILENCE_MS` | `1000` | Trailing silence (ms) that ends a question |
+| `JARVIS_MAX_UTTERANCE_S` | `15` | Hard cap per question (s) |
 | `JARVIS_CLAUDE_MODEL` | `claude-opus-4-8` | Claude model id |
 | `JARVIS_VOICE` | `Daniel` | macOS `say` voice |
 | `JARVIS_WHISPER_MODEL` | `base` | Whisper model size |
@@ -66,8 +73,9 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its
-model is missing, Jarvis auto-falls back to `espeak-ng`. Wake word is not built yet —
-keep `JARVIS_INPUT_MODE=push_to_talk` until Phase 2.
+model is missing, Jarvis auto-falls back to `espeak-ng`. For the Pi, set
+`JARVIS_INPUT_MODE=wake_word` (needs `pvporcupine` + `JARVIS_PORCUPINE_KEY`) —
+see "What's Next" for the run steps.
 
 - Python **3.11–3.13** work (Pi confirmed on 3.13.5 with faster-whisper 1.2.1) — avoid **3.14+** (faster-whisper issues)
 
@@ -140,13 +148,27 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 
 ## What's Next (immediate)
 
-1. **When the data cable arrives → finish Step 5 audio** (record + playback test). Capture the mic card name (`arecord -l`) and output device (`aplay -l`) — these go into the Pi's config.
-2. **Build the wake word** (`WakeWordTrigger` in `input_trigger.py`, Porcupine) — the one remaining Phase 2 software piece. Best done on the Pi since it needs the live mic.
-3. **Natural voice (optional)** — install the `piper` binary + a voice model on the Pi and set `JARVIS_PIPER_MODEL`; doctor's TTS line flips from `espeak` to `piper`. (espeak works now, just robotic.)
-4. **Phase 3.5 (optional)** — install Ollama on the Pi (`ollama pull llama3.1`) for offline fallback; `JARVIS_LLM_BACKEND` already supports it.
-5. **Mac end-to-end test (optional)** — run `python3 jarvis.py` on the Mac, have a conversation, ESC, confirm turns land in DynamoDB.
+**First talking Jarvis on the Pi — wake-word run:**
+1. Get a **free Picovoice access key** at https://console.picovoice.ai.
+2. On the Pi:
+   ```bash
+   cd ~/PersonalJarvis && git pull
+   cd jarvis/phase1
+   .venv/bin/python -m pip install pvporcupine
+   export JARVIS_INPUT_MODE=wake_word
+   export JARVIS_PORCUPINE_KEY=<your-picovoice-key>
+   .venv/bin/python jarvis.py --doctor    # expect Wake word ✅
+   .venv/bin/python jarvis.py             # say "Jarvis", ask, it answers. Ctrl+C to quit.
+   ```
+   (Add the two `export`s to `~/.bashrc` to make them permanent.)
+3. **Tune if needed:** if it cuts you off mid-sentence, lower `JARVIS_VAD_SILENCE`; if it never stops listening, raise it. Wrong mic? set `JARVIS_AUDIO_DEVICE` (index from `arecord -l`).
 
-> **Before running anything on the Pi:** `cd ~/PersonalJarvis && git pull` to grab the latest, then `cd jarvis/phase1 && .venv/bin/python jarvis.py --doctor`.
+**Then (optional, any order):**
+- **Natural voice** — install the `piper` binary + a voice model, set `JARVIS_PIPER_MODEL`; doctor's TTS line flips `espeak`→`piper`. (espeak works now, just robotic.)
+- **Phase 3.5 offline** — install Ollama (`ollama pull llama3.1`); `JARVIS_LLM_BACKEND` already supports auto-fallback.
+- **Auto-start 24/7** — a `systemd` service so Jarvis runs on boot.
+
+> **Before running anything on the Pi:** `cd ~/PersonalJarvis && git pull`, then `cd jarvis/phase1 && .venv/bin/python jarvis.py --doctor`.
 
 ---
 

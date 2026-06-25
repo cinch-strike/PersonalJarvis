@@ -92,13 +92,35 @@ class TestInputSelection(unittest.TestCase):
         self.assertIsInstance(trigger, input_trigger.PushToTalkTrigger)
         self.assertEqual(trigger.name, "push_to_talk")
 
-    def test_wake_word_selectable_but_not_implemented(self):
+    def test_wake_word_selectable_and_manages_audio(self):
         trigger = input_trigger.select_input_trigger(
             "wake_word", self._noop, self._noop, self._noop
         )
         self.assertIsInstance(trigger, input_trigger.WakeWordTrigger)
+        self.assertTrue(trigger.manages_audio)
+
+    def test_push_to_talk_does_not_manage_audio(self):
+        trigger = input_trigger.select_input_trigger(
+            "push_to_talk", self._noop, self._noop, self._noop
+        )
+        self.assertFalse(trigger.manages_audio)
+
+    def test_wake_word_run_without_deps_or_key_raises(self):
+        # No pvporcupine / no access key / no callback → clear InputError, not a
+        # cryptic crash. (CI has none of these, so the import path triggers it.)
+        trigger = input_trigger.select_input_trigger(
+            "wake_word", self._noop, self._noop, self._noop
+        )
         with self.assertRaises(input_trigger.InputError):
-            trigger.run()  # stub: not implemented until Phase 2
+            trigger.run()
+
+    def test_wake_config_passed_through(self):
+        trigger = input_trigger.select_input_trigger(
+            "wake_word", self._noop, self._noop, self._noop,
+            wake_config={"keyword": "computer", "silence_ms": 750},
+        )
+        self.assertEqual(trigger.keyword, "computer")
+        self.assertEqual(trigger.silence_ms, 750)
 
     def test_unknown_mode_raises(self):
         with self.assertRaises(input_trigger.InputError):
@@ -215,6 +237,16 @@ class TestDoctor(unittest.TestCase):
     def test_sqlite_writable_ok(self):
         # The project dir is writable in the test environment.
         self.assertEqual(doctor.check_sqlite().status, doctor.OK)
+
+    def test_wake_word_na_in_push_to_talk(self):
+        with mock.patch.object(doctor.config, "INPUT_MODE", "push_to_talk"):
+            self.assertEqual(doctor.check_wake_word().status, doctor.OK)
+
+    def test_wake_word_fails_without_key_when_enabled(self):
+        # wake_word mode with no key (or no pvporcupine) is always a FAIL.
+        with mock.patch.object(doctor.config, "INPUT_MODE", "wake_word"), \
+             mock.patch.object(doctor.config, "PORCUPINE_KEY", ""):
+            self.assertEqual(doctor.check_wake_word().status, doctor.FAIL)
 
     def test_run_returns_int_and_does_not_raise(self):
         # Smoke test: full report runs end to end. AWS probe is network-tolerant.

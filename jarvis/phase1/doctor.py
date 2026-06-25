@@ -69,6 +69,25 @@ def check_input() -> Check:
         return Check("Input mode", FAIL, str(e))
 
 
+def check_wake_word() -> Check:
+    """Only relevant when running in wake_word mode (the headless-Pi trigger)."""
+    if (config.INPUT_MODE or "").strip().lower() != "wake_word":
+        return Check("Wake word", OK, "n/a (push_to_talk mode)")
+    try:
+        import pvporcupine  # noqa: F401
+    except ImportError:
+        return Check(
+            "Wake word", FAIL,
+            "pvporcupine not installed — .venv/bin/python -m pip install pvporcupine",
+        )
+    if not config.PORCUPINE_KEY:
+        return Check(
+            "Wake word", FAIL,
+            "JARVIS_PORCUPINE_KEY not set (free key: https://console.picovoice.ai)",
+        )
+    return Check("Wake word", OK, f"pvporcupine ready, keyword \"{config.WAKE_KEYWORD}\"")
+
+
 def check_llm() -> Check:
     import llm
     try:
@@ -144,6 +163,7 @@ ALL_CHECKS = (
     check_python,
     check_tts,
     check_input,
+    check_wake_word,
     check_llm,
     check_anthropic_key,
     check_sqlite,

@@ -19,6 +19,17 @@ Env vars:
                          (Claude when reachable, else Ollama offline).
   JARVIS_OLLAMA_MODEL    Ollama model tag. Default "llama3.1".
   JARVIS_OLLAMA_HOST     Ollama server URL. Default "http://localhost:11434".
+  JARVIS_PORCUPINE_KEY   Picovoice access key (free: console.picovoice.ai).
+                         Required when JARVIS_INPUT_MODE=wake_word.
+  JARVIS_WAKE_KEYWORD    Porcupine built-in keyword. Default "jarvis".
+  JARVIS_AUDIO_DEVICE    sounddevice input device (index or name). Default
+                         system default. Set to the ReSpeaker if needed.
+  JARVIS_AUDIO_CHANNELS  Capture channels. Default 1.
+  JARVIS_VAD_SILENCE     RMS energy below which a frame counts as silence.
+                         Default 500. Lower if it cuts you off; raise if it
+                         never stops.
+  JARVIS_VAD_SILENCE_MS  Trailing silence (ms) that ends a question. Default 1000.
+  JARVIS_MAX_UTTERANCE_S Hard cap on a single question (s). Default 15.
 """
 
 import os
@@ -41,6 +52,24 @@ OLLAMA_HOST = os.environ.get("JARVIS_OLLAMA_HOST", "http://localhost:11434")
 
 # How many tokens Jarvis may generate per reply.
 MAX_TOKENS = int(os.environ.get("JARVIS_MAX_TOKENS", "600"))
+
+
+def _audio_device():
+    """Input device: an int index if numeric, else a name string, else None."""
+    raw = os.environ.get("JARVIS_AUDIO_DEVICE")
+    if not raw:
+        return None
+    return int(raw) if raw.isdigit() else raw
+
+
+# Wake-word (consumed by input_trigger.WakeWordTrigger) + audio capture.
+PORCUPINE_KEY = os.environ.get("JARVIS_PORCUPINE_KEY", "")
+WAKE_KEYWORD = os.environ.get("JARVIS_WAKE_KEYWORD", "jarvis")
+AUDIO_DEVICE = _audio_device()
+AUDIO_CHANNELS = int(os.environ.get("JARVIS_AUDIO_CHANNELS", "1"))
+VAD_SILENCE = float(os.environ.get("JARVIS_VAD_SILENCE", "500"))
+VAD_SILENCE_MS = int(os.environ.get("JARVIS_VAD_SILENCE_MS", "1000"))
+MAX_UTTERANCE_S = int(os.environ.get("JARVIS_MAX_UTTERANCE_S", "15"))
 
 SYSTEM_PROMPT = (
     "You are Jarvis, a sharp and concise AI assistant. "

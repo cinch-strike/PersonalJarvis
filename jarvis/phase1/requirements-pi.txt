@@ -14,5 +14,6 @@
 #   ollama pull llama3.1
 #   (the Ollama backend uses stdlib HTTP — no extra pip package needed)
 -r requirements-common.txt
-pynput            # push-to-talk listener (until wake_word lands in Phase 2)
-# pvporcupine     # wake-word engine — uncomment when Phase 2 wake_word is built
+pynput            # push-to-talk listener (Mac; needs a keyboard)
+pvporcupine       # wake-word engine ("Jarvis"); needs JARVIS_PORCUPINE_KEY
+#                   free access key: https://console.picovoice.ai

@@ -85,9 +85,13 @@ def ask_llm(user_text: str) -> str:
     return reply
 
 
-def process() -> None:
-    """Transcribe last recording and get Jarvis response."""
-    text = transcribe(frames)
+def handle_utterance(captured: list) -> None:
+    """Transcribe a captured recording, get a reply, and speak it.
+
+    Used directly by audio-managing triggers (wake_word), and by push_to_talk
+    via process() below.
+    """
+    text = transcribe(captured)
     if not text:
         print("  (nothing heard — try again)")
         return
@@ -96,21 +100,24 @@ def process() -> None:
     speak(reply)
 
 
+def process() -> None:
+    """Process the frames the main audio callback collected (push_to_talk)."""
+    handle_utterance(frames)
+
+
 # ─── Input-trigger callbacks ──────────────────────────────────────────────────
-# The active input trigger calls these; the audio callback streams frames while
-# `recording` is True. Kept identical in behaviour to the old SPACE handlers.
+# push_to_talk uses these to flip record state; the audio callback streams
+# frames while `recording` is True. (The trigger itself prints the UI hints.)
 
 def start_recording() -> None:
     global recording, frames
     recording = True
     frames = []
-    print("  🎙  Recording... (release SPACE to stop)", end="", flush=True)
 
 
 def stop_recording() -> None:
     global recording
     recording = False
-    print(" ⏳ Processing...")
     process()
 
 
@@ -198,7 +205,20 @@ def main() -> int:
 
     try:
         trigger = input_trigger.select_input_trigger(
-            config.INPUT_MODE, start_recording, stop_recording, on_quit
+            config.INPUT_MODE,
+            start_recording,
+            stop_recording,
+            on_quit,
+            process_utterance=handle_utterance,
+            wake_config={
+                "access_key": config.PORCUPINE_KEY,
+                "keyword": config.WAKE_KEYWORD,
+                "device": config.AUDIO_DEVICE,
+                "channels": config.AUDIO_CHANNELS,
+                "silence_threshold": config.VAD_SILENCE,
+                "silence_ms": config.VAD_SILENCE_MS,
+                "max_utterance_s": config.MAX_UTTERANCE_S,
+            },
         )
         print(f"   Input mode: {trigger.name}")
     except input_trigger.InputError as e:
@@ -211,23 +231,33 @@ def main() -> int:
     print(f"   Memory session #{session_id} started.")
 
     print("\n✅ Ready.\n")
-    print("   Hold SPACE → talk → release to get a response")
-    print("   ESC to quit\n")
+    if trigger.name == "wake_word":
+        print(f'   Say "{config.WAKE_KEYWORD}" → ask your question → it answers')
+        print("   Ctrl+C to quit\n")
+    else:
+        print("   Hold SPACE → talk → release to get a response")
+        print("   ESC to quit\n")
     print("─" * 50)
 
     speak("Jarvis online. I'm ready when you are.")
 
-    with sd.InputStream(
-        samplerate=config.SAMPLE_RATE,
-        channels=1,
-        dtype="int16",
-        callback=audio_callback,
-    ):
+    # Audio-managing triggers (wake_word) open their own stream; push_to_talk
+    # relies on this shared stream + audio_callback.
+    if trigger.manages_audio:
         trigger.run()
+    else:
+        with sd.InputStream(
+            samplerate=config.SAMPLE_RATE,
+            channels=1,
+            dtype="int16",
+            callback=audio_callback,
+        ):
+            trigger.run()
 
     # ─── Shutdown ─────────────────────────────────────────────────────────────
-    # Reached after the trigger returns (ESC). Close the session and push memory
-    # to the cloud — both are best-effort and must not crash on the way out.
+    # Reached after the trigger returns (ESC for push_to_talk, Ctrl+C for
+    # wake_word). Close the session and push memory to the cloud — both are
+    # best-effort and must not crash on the way out.
     print("\n   Shutting down...")
     try:
         memory.close_session(session_id)
