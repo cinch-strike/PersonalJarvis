@@ -19,7 +19,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
-| 2 | Always-on Raspberry Pi hub | 🔧 Hardware done (mic + speaker working). Wake word (`WakeWordTrigger`, Porcupine "Jarvis" + silence detection) **built** — needs a free Picovoice key + first run/tune on the Pi. |
+| 2 | Always-on Raspberry Pi hub | 🔧 Hardware done (mic + speaker working). Wake word **built** — keyless **openWakeWord** ("hey_jarvis") by default; Porcupine optional. Needs first run/tune on the Pi. |
 | 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested; live DynamoDB write verified from the Pi (`put-item`) |
 | 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto). Pi confirms `auto` reachable. Ollama not yet installed on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
@@ -53,7 +53,10 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 |---------|---------|---------|
 | `JARVIS_TTS_BACKEND` | auto (Darwin→`say`, Linux→`piper`/`espeak`) | Force a TTS backend: `say` \| `piper` \| `espeak` |
 | `JARVIS_INPUT_MODE` | `push_to_talk` | Recording trigger: `push_to_talk` (Mac) \| `wake_word` (Pi) |
-| `JARVIS_PORCUPINE_KEY` | — | Picovoice access key (free) — **required** for `wake_word` |
+| `JARVIS_WAKE_ENGINE` | `auto` | `auto` (Porcupine if key set, else openWakeWord) \| `porcupine` \| `openwakeword` |
+| `JARVIS_OWW_MODEL` | `hey_jarvis` | openWakeWord model (keyless engine) |
+| `JARVIS_OWW_THRESHOLD` | `0.5` | openWakeWord detection threshold (0–1); raise to reduce false wakes |
+| `JARVIS_PORCUPINE_KEY` | — | Picovoice key (Porcupine only — now needs commercial approval) |
 | `JARVIS_WAKE_KEYWORD` | `jarvis` | Porcupine built-in keyword |
 | `JARVIS_AUDIO_DEVICE` | system default | sounddevice input device (index or name) — set to the ReSpeaker if needed |
 | `JARVIS_AUDIO_CHANNELS` | `1` | Capture channels |
@@ -74,8 +77,8 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its
 model is missing, Jarvis auto-falls back to `espeak-ng`. For the Pi, set
-`JARVIS_INPUT_MODE=wake_word` (needs `pvporcupine` + `JARVIS_PORCUPINE_KEY`) —
-see "What's Next" for the run steps.
+`JARVIS_INPUT_MODE=wake_word` (keyless via `openwakeword` by default) — see
+"What's Next" for the run steps.
 
 - Python **3.11–3.13** work (Pi confirmed on 3.13.5 with faster-whisper 1.2.1) — avoid **3.14+** (faster-whisper issues)
 
@@ -148,20 +151,24 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 
 ## What's Next (immediate)
 
-**First talking Jarvis on the Pi — wake-word run:**
-1. Get a **free Picovoice access key** at https://console.picovoice.ai.
-2. On the Pi:
-   ```bash
-   cd ~/PersonalJarvis && git pull
-   cd jarvis/phase1
-   .venv/bin/python -m pip install pvporcupine
-   export JARVIS_INPUT_MODE=wake_word
-   export JARVIS_PORCUPINE_KEY=<your-picovoice-key>
-   .venv/bin/python jarvis.py --doctor    # expect Wake word ✅
-   .venv/bin/python jarvis.py             # say "Jarvis", ask, it answers. Ctrl+C to quit.
-   ```
-   (Add the two `export`s to `~/.bashrc` to make them permanent.)
-3. **Tune if needed:** if it cuts you off mid-sentence, lower `JARVIS_VAD_SILENCE`; if it never stops listening, raise it. Wrong mic? set `JARVIS_AUDIO_DEVICE` (index from `arecord -l`).
+**First talking Jarvis on the Pi — wake-word run (keyless openWakeWord):**
+> Porcupine's free key now requires Picovoice *commercial-use approval* (Donnie hit this gate), so the default engine is **openWakeWord** — no account, no key, offline.
+```bash
+cd ~/PersonalJarvis && git pull
+cd jarvis/phase1
+.venv/bin/python -m pip install openwakeword
+export JARVIS_INPUT_MODE=wake_word
+export JARVIS_AUDIO_DEVICE=0        # ReSpeaker 4 Mic Array (confirmed via query_devices)
+export JARVIS_AUDIO_CHANNELS=6      # ReSpeaker exposes 6ch; ch0 (processed) is used
+.venv/bin/python jarvis.py --doctor   # expect Wake word ✅ (openWakeWord ready)
+.venv/bin/python jarvis.py            # say "hey jarvis", ask, it answers. Ctrl+C to quit.
+```
+(Add the `export`s to `~/.bashrc` to make them permanent. First run downloads the openWakeWord models — a few MB.)
+
+**Tuning:**
+- Wake word not triggering / too touchy → adjust `JARVIS_OWW_THRESHOLD` (lower = easier, more false wakes; default 0.5).
+- Cuts you off mid-sentence → lower `JARVIS_VAD_SILENCE`; never stops → raise it.
+- Wrong/quiet mic → confirm `JARVIS_AUDIO_DEVICE` index from `query_devices()`.
 
 **Then (optional, any order):**
 - **Natural voice** — install the `piper` binary + a voice model, set `JARVIS_PIPER_MODEL`; doctor's TTS line flips `espeak`→`piper`. (espeak works now, just robotic.)

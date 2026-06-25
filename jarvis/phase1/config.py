@@ -19,9 +19,13 @@ Env vars:
                          (Claude when reachable, else Ollama offline).
   JARVIS_OLLAMA_MODEL    Ollama model tag. Default "llama3.1".
   JARVIS_OLLAMA_HOST     Ollama server URL. Default "http://localhost:11434".
-  JARVIS_PORCUPINE_KEY   Picovoice access key (free: console.picovoice.ai).
-                         Required when JARVIS_INPUT_MODE=wake_word.
+  JARVIS_WAKE_ENGINE     Wake engine (auto|porcupine|openwakeword). Default
+                         "auto" = Porcupine if a key is set, else openWakeWord.
+  JARVIS_PORCUPINE_KEY   Picovoice access key (Porcupine only; now needs
+                         commercial approval — openWakeWord needs no key).
   JARVIS_WAKE_KEYWORD    Porcupine built-in keyword. Default "jarvis".
+  JARVIS_OWW_MODEL       openWakeWord model name. Default "hey_jarvis".
+  JARVIS_OWW_THRESHOLD   openWakeWord detection threshold 0-1. Default 0.5.
   JARVIS_AUDIO_DEVICE    sounddevice input device (index or name). Default
                          system default. Set to the ReSpeaker if needed.
   JARVIS_AUDIO_CHANNELS  Capture channels. Default 1.
@@ -63,8 +67,12 @@ def _audio_device():
 
 
 # Wake-word (consumed by input_trigger.WakeWordTrigger) + audio capture.
+# Engine: "auto" → Porcupine if a key is set, else keyless openWakeWord.
+WAKE_ENGINE = os.environ.get("JARVIS_WAKE_ENGINE", "auto")
 PORCUPINE_KEY = os.environ.get("JARVIS_PORCUPINE_KEY", "")
-WAKE_KEYWORD = os.environ.get("JARVIS_WAKE_KEYWORD", "jarvis")
+WAKE_KEYWORD = os.environ.get("JARVIS_WAKE_KEYWORD", "jarvis")   # Porcupine keyword
+OWW_MODEL = os.environ.get("JARVIS_OWW_MODEL", "hey_jarvis")     # openWakeWord model
+OWW_THRESHOLD = float(os.environ.get("JARVIS_OWW_THRESHOLD", "0.5"))
 AUDIO_DEVICE = _audio_device()
 AUDIO_CHANNELS = int(os.environ.get("JARVIS_AUDIO_CHANNELS", "1"))
 VAD_SILENCE = float(os.environ.get("JARVIS_VAD_SILENCE", "500"))

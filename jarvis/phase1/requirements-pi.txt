@@ -15,5 +15,5 @@
 #   (the Ollama backend uses stdlib HTTP — no extra pip package needed)
 -r requirements-common.txt
 pynput            # push-to-talk listener (Mac; needs a keyboard)
-pvporcupine       # wake-word engine ("Jarvis"); needs JARVIS_PORCUPINE_KEY
-#                   free access key: https://console.picovoice.ai
+openwakeword      # wake-word engine (default) — keyless, offline, "hey_jarvis"
+# pvporcupine     # alt wake engine; lighter but needs Picovoice commercial approval

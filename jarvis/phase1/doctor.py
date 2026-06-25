@@ -73,19 +73,32 @@ def check_wake_word() -> Check:
     """Only relevant when running in wake_word mode (the headless-Pi trigger)."""
     if (config.INPUT_MODE or "").strip().lower() != "wake_word":
         return Check("Wake word", OK, "n/a (push_to_talk mode)")
-    try:
-        import pvporcupine  # noqa: F401
-    except ImportError:
-        return Check(
-            "Wake word", FAIL,
-            "pvporcupine not installed — .venv/bin/python -m pip install pvporcupine",
-        )
-    if not config.PORCUPINE_KEY:
-        return Check(
-            "Wake word", FAIL,
-            "JARVIS_PORCUPINE_KEY not set (free key: https://console.picovoice.ai)",
-        )
-    return Check("Wake word", OK, f"pvporcupine ready, keyword \"{config.WAKE_KEYWORD}\"")
+
+    engine = (config.WAKE_ENGINE or "auto").strip().lower()
+    if engine == "auto":
+        engine = "porcupine" if config.PORCUPINE_KEY else "openwakeword"
+
+    if engine == "porcupine":
+        try:
+            import pvporcupine  # noqa: F401
+        except ImportError:
+            return Check("Wake word", FAIL,
+                         "pvporcupine not installed — pip install pvporcupine")
+        if not config.PORCUPINE_KEY:
+            return Check("Wake word", FAIL,
+                         "porcupine engine needs JARVIS_PORCUPINE_KEY")
+        return Check("Wake word", OK, f"porcupine ready, keyword \"{config.WAKE_KEYWORD}\"")
+
+    if engine in ("openwakeword", "oww"):
+        try:
+            import openwakeword  # noqa: F401
+        except ImportError:
+            return Check("Wake word", FAIL,
+                         "openwakeword not installed — pip install openwakeword")
+        return Check("Wake word", OK, f"openWakeWord ready, model \"{config.OWW_MODEL}\"")
+
+    return Check("Wake word", FAIL,
+                 f"unknown JARVIS_WAKE_ENGINE '{config.WAKE_ENGINE}'")
 
 
 def check_llm() -> Check:

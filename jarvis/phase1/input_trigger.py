@@ -92,12 +92,94 @@ class PushToTalkTrigger(InputTrigger):
             listener.join()
 
 
+# ─── Wake-word engines ────────────────────────────────────────────────────────
+# Each engine just answers "did the wake word fire in this audio frame?" and
+# declares the sample rate + frame size it wants. The trigger below owns the mic
+# stream, feeds the engine, and handles utterance capture/VAD — shared by both.
+
+class WakeEngine(ABC):
+    sample_rate: int = 16000
+    frame_length: int = 512
+
+    @abstractmethod
+    def process(self, pcm) -> bool:
+        """Return True if the wake word fired in this int16 mono frame."""
+
+    def close(self) -> None:
+        pass
+
+
+class PorcupineEngine(WakeEngine):
+    """Picovoice Porcupine. Light + accurate, but the free key now requires a
+    commercial-use approval from Picovoice (console.picovoice.ai)."""
+
+    def __init__(self, access_key: str, keyword: str = "jarvis") -> None:
+        if not access_key:
+            raise InputError(
+                "porcupine engine needs a Picovoice access key in "
+                "JARVIS_PORCUPINE_KEY (https://console.picovoice.ai)."
+            )
+        try:
+            import pvporcupine
+        except ImportError as e:
+            raise InputError(
+                "porcupine engine needs 'pvporcupine': "
+                ".venv/bin/python -m pip install pvporcupine"
+            ) from e
+        try:
+            self._p = pvporcupine.create(access_key=access_key, keywords=[keyword])
+        except Exception as e:  # bad key, unknown keyword, etc.
+            raise InputError(f"could not start Porcupine ({keyword!r}): {e}") from e
+        self.sample_rate = self._p.sample_rate
+        self.frame_length = self._p.frame_length
+
+    def process(self, pcm) -> bool:
+        return self._p.process(pcm) >= 0
+
+    def close(self) -> None:
+        try:
+            self._p.delete()
+        except Exception:
+            pass
+
+
+class OpenWakeWordEngine(WakeEngine):
+    """openWakeWord — open-source, no account/key, runs offline. Ships a
+    pretrained "hey_jarvis" model. Expects 16 kHz / 1280-sample (80 ms) frames."""
+
+    sample_rate = 16000
+    frame_length = 1280
+
+    def __init__(self, model: str = "hey_jarvis", threshold: float = 0.5) -> None:
+        try:
+            import openwakeword
+            from openwakeword.model import Model
+        except ImportError as e:
+            raise InputError(
+                "openwakeword engine needs 'openwakeword': "
+                ".venv/bin/python -m pip install openwakeword"
+            ) from e
+        self.threshold = threshold
+        try:
+            openwakeword.utils.download_models()  # idempotent; first run fetches
+            self._model = Model(wakeword_models=[model])
+        except Exception as e:
+            raise InputError(
+                f"could not load openWakeWord model {model!r}: {e}"
+            ) from e
+
+    def process(self, pcm) -> bool:
+        scores = self._model.predict(pcm)
+        return any(score >= self.threshold for score in scores.values())
+
+
 class WakeWordTrigger(InputTrigger):
     """Say the wake word to start; record until you stop talking; repeat.
 
     Owns the mic stream because it must read audio continuously to detect the
-    wake word. Uses Porcupine for detection and a simple RMS-energy silence
-    detector to decide when the spoken question has ended. Quit with Ctrl+C.
+    wake word. Detection is delegated to a pluggable WakeEngine (Porcupine or
+    openWakeWord); a simple RMS-energy silence detector decides when the spoken
+    question has ended. Quit with Ctrl+C.
     """
 
     name = "wake_word"
@@ -110,8 +192,11 @@ class WakeWordTrigger(InputTrigger):
         on_quit: Callable[[], None],
         *,
         process_utterance: Optional[Callable[[List], None]] = None,
+        engine: str = "auto",
         access_key: str = "",
         keyword: str = "jarvis",
+        oww_model: str = "hey_jarvis",
+        oww_threshold: float = 0.5,
         device: Optional[object] = None,
         channels: int = 1,
         silence_threshold: float = 500.0,
@@ -120,52 +205,57 @@ class WakeWordTrigger(InputTrigger):
     ) -> None:
         super().__init__(on_record_start, on_record_stop, on_quit)
         self.process_utterance = process_utterance
+        self.engine = engine
         self.access_key = access_key
         self.keyword = keyword
+        self.oww_model = oww_model
+        self.oww_threshold = oww_threshold
         self.device = device
         self.channels = channels
         self.silence_threshold = silence_threshold
         self.silence_ms = silence_ms
         self.max_utterance_s = max_utterance_s
 
+    def _make_engine(self) -> WakeEngine:
+        choice = (self.engine or "auto").strip().lower()
+        if choice == "auto":
+            # Prefer Porcupine only if a key is present; otherwise go keyless.
+            choice = "porcupine" if self.access_key else "openwakeword"
+        if choice == "porcupine":
+            return PorcupineEngine(self.access_key, self.keyword)
+        if choice in ("openwakeword", "oww"):
+            return OpenWakeWordEngine(self.oww_model, self.oww_threshold)
+        raise InputError(
+            f"Unknown JARVIS_WAKE_ENGINE '{self.engine}'. "
+            "Valid values: auto, porcupine, openwakeword."
+        )
+
+    def _label(self) -> str:
+        return self.keyword if isinstance(self._engine, PorcupineEngine) else self.oww_model
+
     def run(self) -> None:
-        try:
-            import pvporcupine
-        except ImportError as e:
-            raise InputError(
-                "wake_word needs the 'pvporcupine' package — install it on the Pi:\n"
-                "   .venv/bin/python -m pip install pvporcupine"
-            ) from e
+        if self.process_utterance is None:
+            raise InputError("wake_word trigger was given no process_utterance callback.")
+
+        self._engine = self._make_engine()  # raises InputError with guidance
         try:
             import numpy as np
             import sounddevice as sd
         except ImportError as e:
+            self._engine.close()
             raise InputError(f"wake_word needs sounddevice + numpy: {e}") from e
 
-        if not self.access_key:
-            raise InputError(
-                "wake_word needs a Picovoice access key. Get a free key at "
-                "https://console.picovoice.ai and set JARVIS_PORCUPINE_KEY."
-            )
-        if self.process_utterance is None:
-            raise InputError("wake_word trigger was given no process_utterance callback.")
-
-        try:
-            porcupine = pvporcupine.create(
-                access_key=self.access_key, keywords=[self.keyword]
-            )
-        except Exception as e:  # bad key, unknown keyword, etc.
-            raise InputError(f"could not start Porcupine ({self.keyword!r}): {e}") from e
-
-        frame_length = porcupine.frame_length      # samples Porcupine wants per call
-        rate = porcupine.sample_rate               # 16000
+        engine = self._engine
+        rate = engine.sample_rate
+        frame_length = engine.frame_length
         silence_frames = max(1, int(self.silence_ms / 1000 * rate / frame_length))
         max_frames = int(self.max_utterance_s * rate / frame_length)
+        label = self._label()
 
         def mono(block):
             return block[:, 0] if block.ndim > 1 else block
 
-        print(f"\n  👂 Listening for \"{self.keyword}\"...  (Ctrl+C to quit)\n")
+        print(f"\n  👂 Listening for \"{label}\"...  (Ctrl+C to quit)\n")
         try:
             with sd.InputStream(
                 samplerate=rate,
@@ -175,7 +265,7 @@ class WakeWordTrigger(InputTrigger):
             ) as stream:
                 while True:
                     block, _ = stream.read(frame_length)
-                    if porcupine.process(mono(block)) < 0:
+                    if not engine.process(mono(block)):
                         continue
 
                     # Wake word heard → capture the question until silence.
@@ -199,12 +289,12 @@ class WakeWordTrigger(InputTrigger):
 
                     print("  ⏳ Processing...")
                     self.process_utterance(captured)
-                    print(f'\n  👂 Listening for "{self.keyword}"...\n')
+                    print(f'\n  👂 Listening for "{label}"...\n')
         except KeyboardInterrupt:
             print("\n  (wake-word listener stopped)")
             self.on_quit()
         finally:
-            porcupine.delete()
+            engine.close()
 
 
 _TRIGGERS = {

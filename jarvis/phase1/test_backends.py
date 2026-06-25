@@ -117,10 +117,20 @@ class TestInputSelection(unittest.TestCase):
     def test_wake_config_passed_through(self):
         trigger = input_trigger.select_input_trigger(
             "wake_word", self._noop, self._noop, self._noop,
-            wake_config={"keyword": "computer", "silence_ms": 750},
+            wake_config={"engine": "openwakeword", "oww_model": "alexa", "silence_ms": 750},
         )
-        self.assertEqual(trigger.keyword, "computer")
+        self.assertEqual(trigger.engine, "openwakeword")
+        self.assertEqual(trigger.oww_model, "alexa")
         self.assertEqual(trigger.silence_ms, 750)
+
+    def test_unknown_wake_engine_raises(self):
+        trigger = input_trigger.select_input_trigger(
+            "wake_word", self._noop, self._noop, self._noop,
+            process_utterance=lambda f: None,
+            wake_config={"engine": "bogus"},
+        )
+        with self.assertRaises(input_trigger.InputError):
+            trigger.run()  # _make_engine rejects the unknown engine
 
     def test_unknown_mode_raises(self):
         with self.assertRaises(input_trigger.InputError):
@@ -242,9 +252,10 @@ class TestDoctor(unittest.TestCase):
         with mock.patch.object(doctor.config, "INPUT_MODE", "push_to_talk"):
             self.assertEqual(doctor.check_wake_word().status, doctor.OK)
 
-    def test_wake_word_fails_without_key_when_enabled(self):
-        # wake_word mode with no key (or no pvporcupine) is always a FAIL.
+    def test_wake_word_porcupine_fails_without_key(self):
+        # Force the porcupine engine with no key → deterministic FAIL.
         with mock.patch.object(doctor.config, "INPUT_MODE", "wake_word"), \
+             mock.patch.object(doctor.config, "WAKE_ENGINE", "porcupine"), \
              mock.patch.object(doctor.config, "PORCUPINE_KEY", ""):
             self.assertEqual(doctor.check_wake_word().status, doctor.FAIL)
 

@@ -211,8 +211,11 @@ def main() -> int:
             on_quit,
             process_utterance=handle_utterance,
             wake_config={
+                "engine": config.WAKE_ENGINE,
                 "access_key": config.PORCUPINE_KEY,
                 "keyword": config.WAKE_KEYWORD,
+                "oww_model": config.OWW_MODEL,
+                "oww_threshold": config.OWW_THRESHOLD,
                 "device": config.AUDIO_DEVICE,
                 "channels": config.AUDIO_CHANNELS,
                 "silence_threshold": config.VAD_SILENCE,
