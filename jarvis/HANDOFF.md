@@ -19,7 +19,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
-| 2 | Always-on Raspberry Pi hub | 🔧 Hardware done (mic + speaker working). Wake word **built** — keyless **openWakeWord** ("hey_jarvis") by default; Porcupine optional. Needs first run/tune on the Pi. |
+| 2 | Always-on Raspberry Pi hub | 🔧 Hardware done. Wake word **running on the Pi** — `jarvis.py` loads, speaks "Jarvis online", and listens for "hey jarvis" (keyless openWakeWord 0.4.0, bundled models). **Pending: first live conversation test + VAD/threshold tuning.** |
 | 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested; live DynamoDB write verified from the Pi (`put-item`) |
 | 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto). Pi confirms `auto` reachable. Ollama not yet installed on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
@@ -163,12 +163,27 @@ export JARVIS_AUDIO_CHANNELS=6      # ReSpeaker exposes 6ch; ch0 (processed) is 
 .venv/bin/python jarvis.py --doctor   # expect Wake word ✅ (openWakeWord ready)
 .venv/bin/python jarvis.py            # say "hey jarvis", ask, it answers. Ctrl+C to quit.
 ```
-(Add the `export`s to `~/.bashrc` to make them permanent. First run downloads the openWakeWord models — a few MB.)
+> **openWakeWord version reality:** on the Pi's Python 3.13, pip installs **0.4.0** (newer needs `tflite-runtime`, which has no 3.13 wheel). 0.4.0 bundles its models (incl. `hey_jarvis`) — no download needed. The engine handles this automatically.
 
-**Tuning:**
+**Make the env vars permanent** (otherwise a new SSH session starts back in push_to_talk):
+```bash
+cat >> ~/.bashrc <<'EOF'
+export JARVIS_INPUT_MODE=wake_word
+export JARVIS_AUDIO_DEVICE=0
+export JARVIS_AUDIO_CHANNELS=6
+EOF
+source ~/.bashrc
+```
+
+**To resume in a new session:** `ssh jarvis@jarvis.local`, then `cd ~/PersonalJarvis/jarvis/phase1 && .venv/bin/python jarvis.py`.
+
+**Status:** confirmed up to the `👂 Listening for "hey_jarvis"` state. **Not yet verified:** an actual "hey jarvis" + question round-trip (wake detection → Whisper → Claude → speak). That's the next test.
+
+**Tuning (once testing the live loop):**
 - Wake word not triggering / too touchy → adjust `JARVIS_OWW_THRESHOLD` (lower = easier, more false wakes; default 0.5).
 - Cuts you off mid-sentence → lower `JARVIS_VAD_SILENCE`; never stops → raise it.
 - Wrong/quiet mic → confirm `JARVIS_AUDIO_DEVICE` index from `query_devices()`.
+- The `onnxruntime ... GpuDevices / CUDAExecutionProvider` warnings are harmless (CPU inference).
 
 **Then (optional, any order):**
 - **Natural voice** — install the `piper` binary + a voice model, set `JARVIS_PIPER_MODEL`; doctor's TTS line flips `espeak`→`piper`. (espeak works now, just robotic.)
