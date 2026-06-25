@@ -160,9 +160,22 @@ class OpenWakeWordEngine(WakeEngine):
                 ".venv/bin/python -m pip install openwakeword"
             ) from e
         self.threshold = threshold
+        self.model_key = model
+        # The API differs across versions, and Python 3.13 on the Pi only gets
+        # the older 0.4.x (newer releases need tflite-runtime, which has no 3.13
+        # wheel). Handle both:
+        #   ≥0.5: utils.download_models() then Model(wakeword_models=[name])
+        #   0.4.x: models are bundled — Model() loads them all (incl. hey_jarvis)
+        utils = getattr(openwakeword, "utils", None)
         try:
-            openwakeword.utils.download_models()  # idempotent; first run fetches
-            self._model = Model(wakeword_models=[model])
+            if utils is not None and hasattr(utils, "download_models"):
+                try:
+                    utils.download_models([model])
+                except TypeError:
+                    utils.download_models()
+                self._model = Model(wakeword_models=[model])
+            else:
+                self._model = Model()
         except Exception as e:
             raise InputError(
                 f"could not load openWakeWord model {model!r}: {e}"
@@ -170,7 +183,13 @@ class OpenWakeWordEngine(WakeEngine):
 
     def process(self, pcm) -> bool:
         scores = self._model.predict(pcm)
-        return any(score >= self.threshold for score in scores.values())
+        # Match by substring so it works whether the key is "hey_jarvis" or a
+        # versioned "hey_jarvis_v0.1". With 0.4.x Model() all models are scored;
+        # we only react to the one we want.
+        return any(
+            self.model_key in name and score >= self.threshold
+            for name, score in scores.items()
+        )
 
 
 class WakeWordTrigger(InputTrigger):
