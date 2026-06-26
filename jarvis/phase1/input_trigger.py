@@ -105,6 +105,9 @@ class WakeEngine(ABC):
     def process(self, pcm) -> bool:
         """Return True if the wake word fired in this int16 mono frame."""
 
+    def reset(self) -> None:
+        """Clear internal detection state (e.g. after handling an utterance)."""
+
     def close(self) -> None:
         pass
 
@@ -190,6 +193,14 @@ class OpenWakeWordEngine(WakeEngine):
             self.model_key in name and score >= self.threshold
             for name, score in scores.items()
         )
+
+    def reset(self) -> None:
+        # Clear the rolling prediction buffer so leftover frames (e.g. from our
+        # own TTS) don't carry over into the next wake decision.
+        try:
+            self._model.reset()
+        except Exception:
+            pass
 
 
 class WakeWordTrigger(InputTrigger):
@@ -308,6 +319,18 @@ class WakeWordTrigger(InputTrigger):
 
                     print("  ⏳ Processing...")
                     self.process_utterance(captured)
+
+                    # Jarvis just spoke through the speaker, and the mic buffered
+                    # all of it while we were busy. Discard that backlog and clear
+                    # the detector so it doesn't hear and reply to its own voice
+                    # (feedback loop).
+                    try:
+                        pending = stream.read_available
+                        if pending:
+                            stream.read(pending)
+                    except Exception:
+                        pass
+                    engine.reset()
                     print(f'\n  👂 Listening for "{label}"...\n')
         except KeyboardInterrupt:
             print("\n  (wake-word listener stopped)")
