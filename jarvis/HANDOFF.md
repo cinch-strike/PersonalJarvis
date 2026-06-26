@@ -19,7 +19,7 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Push-to-talk voice loop on Mac | ✅ Done |
-| 2 | Always-on Raspberry Pi hub | 🔧 Hardware done. Wake word **running on the Pi** — `jarvis.py` loads, speaks "Jarvis online", and listens for "hey jarvis" (keyless openWakeWord 0.4.0, bundled models). **Pending: first live conversation test + VAD/threshold tuning.** |
+| 2 | Always-on Raspberry Pi hub | 🟢 Running on the Pi: wake word ("hey jarvis", openWakeWord 0.4.0) → Whisper → Claude → **natural piper voice (alan)** out the Pebble. Audio in/out both working. Remaining polish: transcription tuning + 24/7 autostart. |
 | 3 | Persistent memory (SQLite + DynamoDB) | ✅ Done — unit-tested; live DynamoDB write verified from the Pi (`put-item`) |
 | 3.5 | Offline/local LLM via Ollama | 🔧 Software ready (llm.py: claude/ollama/auto). Pi confirms `auto` reachable. Ollama not yet installed on Pi |
 | 4+ | Life admin, vision, portable, wearable, home | 📋 Planned — see ROADMAP.md |
@@ -188,7 +188,11 @@ source ~/.bashrc
 - The `onnxruntime ... GpuDevices / CUDAExecutionProvider` warnings are harmless (CPU inference).
 
 **Then (optional, any order):**
-- **Natural voice** — install the `piper` binary + a voice model, set `JARVIS_PIPER_MODEL`; doctor's TTS line flips `espeak`→`piper`. (espeak works now, just robotic.)
+- **Natural voice — DONE (piper + alan).** Installed on the Pi:
+  - Binary: `~/piper/` (from rhasspy/piper `2023.11.14-2` `piper_linux_aarch64.tar.gz`).
+  - Voice: `~/piper-voices/en_GB-alan-medium.onnx` (+ `.onnx.json`) — calm British male.
+  - `~/.bashrc` sets `PATH=$HOME/piper:$PATH` + `JARVIS_PIPER_MODEL=…alan-medium.onnx`; Jarvis then auto-selects piper over espeak. Playback still via `JARVIS_AUDIO_OUTPUT=plughw:3,0`.
+  - Swap voices: download another from rhasspy/piper-voices on HF and repoint `JARVIS_PIPER_MODEL`. (The macOS prebuilt piper binary is broken — missing dylibs — but Linux/Pi is fine.)
 - **Phase 3.5 offline** — install Ollama (`ollama pull llama3.1`); `JARVIS_LLM_BACKEND` already supports auto-fallback.
 - **Auto-start 24/7** — a `systemd` service so Jarvis runs on boot.
 
