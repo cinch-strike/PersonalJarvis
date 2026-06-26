@@ -100,11 +100,15 @@ class PiperTTS(TTSBackend):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-        subprocess.Popen(aplay_cmd, stdin=piper.stdout)
+        aplay = subprocess.Popen(aplay_cmd, stdin=piper.stdout)
+        if piper.stdout:
+            piper.stdout.close()  # let aplay get EOF once piper is done
         if piper.stdin:
             piper.stdin.write(text.encode("utf-8"))
             piper.stdin.close()
         piper.wait()
+        aplay.wait()  # block until audio has actually finished playing, so the
+                      # caller's mic-buffer drain captures ALL of our own speech
 
 
 class EspeakTTS(TTSBackend):

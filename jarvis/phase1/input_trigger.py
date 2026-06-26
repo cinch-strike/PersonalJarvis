@@ -318,12 +318,15 @@ class WakeWordTrigger(InputTrigger):
                                 break
 
                     print("  ⏳ Processing...")
-                    self.process_utterance(captured)
-
-                    # Jarvis just spoke through the speaker, and the mic buffered
-                    # all of it while we were busy. Discard that backlog and clear
-                    # the detector so it doesn't hear and reply to its own voice
-                    # (feedback loop).
+                    # Pause the mic while we transcribe, think, and speak, so the
+                    # stream never buffers Jarvis's own voice from the speaker.
+                    stream.stop()
+                    try:
+                        self.process_utterance(captured)
+                    finally:
+                        stream.start()
+                    # Belt-and-suspenders: discard any residual buffered audio and
+                    # reset the detector so it can't hear/reply to itself (feedback).
                     try:
                         pending = stream.read_available
                         if pending:
