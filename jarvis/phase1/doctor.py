@@ -52,7 +52,9 @@ def check_python() -> Check:
 def check_tts() -> Check:
     import tts
     try:
-        backend = tts.select_tts_backend(config.VOICE, override=config.TTS_BACKEND)
+        backend = tts.select_tts_backend(
+            config.VOICE, override=config.TTS_BACKEND, output_device=config.AUDIO_OUTPUT
+        )
         return Check("TTS backend", OK, backend.name)
     except tts.TTSError as e:
         return Check("TTS backend", FAIL, str(e))

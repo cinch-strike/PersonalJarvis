@@ -70,7 +70,9 @@ class PiperTTS(TTSBackend):
 
     name = "piper"
 
-    def __init__(self, model: str | None = None, rate: int = 22050) -> None:
+    def __init__(
+        self, model: str | None = None, rate: int = 22050, output_device: str | None = None
+    ) -> None:
         self._bin = self._require(
             "piper",
             "Install piper: see https://github.com/rhasspy/piper "
@@ -86,17 +88,19 @@ class PiperTTS(TTSBackend):
                 "voice file (download from the piper voices repo)."
             )
         self.rate = rate
+        self.output_device = output_device
 
     def speak(self, text: str) -> None:
+        aplay_cmd = [self._aplay, "-q", "-r", str(self.rate), "-f", "S16_LE", "-t", "raw"]
+        if self.output_device:
+            aplay_cmd += ["-D", self.output_device]
+        aplay_cmd.append("-")
         piper = subprocess.Popen(
             [self._bin, "--model", self.model, "--output-raw"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-        subprocess.Popen(
-            [self._aplay, "-r", str(self.rate), "-f", "S16_LE", "-t", "raw", "-"],
-            stdin=piper.stdout,
-        )
+        subprocess.Popen(aplay_cmd, stdin=piper.stdout)
         if piper.stdin:
             piper.stdin.write(text.encode("utf-8"))
             piper.stdin.close()
@@ -104,17 +108,40 @@ class PiperTTS(TTSBackend):
 
 
 class EspeakTTS(TTSBackend):
-    """Linux `espeak-ng` fallback — robotic but dependency-light and reliable."""
+    """Linux `espeak-ng` — robotic but dependency-light and reliable.
+
+    If `output_device` is set, render to WAV and pipe through `aplay -D <dev>`
+    so audio lands on a specific ALSA device (e.g. a USB speaker). Otherwise
+    let espeak-ng play to the system default.
+    """
 
     name = "espeak"
 
-    def __init__(self) -> None:
+    def __init__(self, output_device: str | None = None) -> None:
         self._bin = self._require(
             "espeak-ng", "Install it: sudo apt install espeak-ng"
         )
+        self.output_device = output_device
+        self._aplay = None
+        if output_device:
+            self._aplay = self._require(
+                "aplay", "Install ALSA utils: sudo apt install alsa-utils"
+            )
 
     def speak(self, text: str) -> None:
-        subprocess.run([self._bin, text], check=False)
+        if not self.output_device:
+            subprocess.run([self._bin, text], check=False)
+            return
+        espeak = subprocess.Popen(
+            [self._bin, "--stdout", text], stdout=subprocess.PIPE
+        )
+        aplay = subprocess.Popen(
+            [self._aplay, "-q", "-D", self.output_device], stdin=espeak.stdout
+        )
+        if espeak.stdout:
+            espeak.stdout.close()  # let espeak get SIGPIPE if aplay exits
+        aplay.wait()
+        espeak.wait()
 
 
 # Map explicit override values → the backend they select.
@@ -133,12 +160,16 @@ def select_tts_backend(
     *,
     system: str | None = None,
     override: str | None = None,
+    output_device: str | None = None,
 ) -> TTSBackend:
     """Pick and instantiate the TTS backend for this environment.
 
     Order of precedence:
       1. `override` arg / JARVIS_TTS_BACKEND env var (explicit).
       2. OS auto-detect: Darwin → say; Linux → piper, falling back to espeak.
+
+    `output_device` (an ALSA device like "plughw:3,0") routes Linux playback to
+    a specific speaker; ignored by the macOS `say` backend.
 
     Raises TTSError with an actionable message if no backend can be used.
     """
@@ -156,8 +187,8 @@ def select_tts_backend(
         if choice == "say":
             return MacSayTTS(voice)
         if choice == "piper":
-            return PiperTTS()
-        return EspeakTTS()
+            return PiperTTS(output_device=output_device)
+        return EspeakTTS(output_device=output_device)
 
     if system == "Darwin":
         return MacSayTTS(voice)
@@ -165,10 +196,10 @@ def select_tts_backend(
     if system == "Linux":
         # Prefer piper; fall back to espeak-ng if piper (or its model) is absent.
         try:
-            return PiperTTS()
+            return PiperTTS(output_device=output_device)
         except TTSError as piper_err:
             try:
-                return EspeakTTS()
+                return EspeakTTS(output_device=output_device)
             except TTSError as espeak_err:
                 raise TTSError(
                     "No usable Linux TTS backend found.\n"

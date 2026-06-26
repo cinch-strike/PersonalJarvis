@@ -59,7 +59,8 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_PORCUPINE_KEY` | — | Picovoice key (Porcupine only — now needs commercial approval) |
 | `JARVIS_WAKE_KEYWORD` | `jarvis` | Porcupine built-in keyword |
 | `JARVIS_AUDIO_DEVICE` | system default | sounddevice input device (index or name) — set to the ReSpeaker if needed |
-| `JARVIS_AUDIO_CHANNELS` | `1` | Capture channels |
+| `JARVIS_AUDIO_CHANNELS` | `1` | Capture channels (ReSpeaker = 6; ch0 used) |
+| `JARVIS_AUDIO_OUTPUT` | system default | ALSA playback device for TTS, e.g. `plughw:3,0` (Pebble). `espeak`'s default output isn't the Pebble, so set this on the Pi |
 | `JARVIS_VAD_SILENCE` | `500` | RMS below this = silence. Lower if it cuts you off; raise if it never stops |
 | `JARVIS_VAD_SILENCE_MS` | `1000` | Trailing silence (ms) that ends a question |
 | `JARVIS_MAX_UTTERANCE_S` | `15` | Hard cap per question (s) |
@@ -169,8 +170,9 @@ export JARVIS_AUDIO_CHANNELS=6      # ReSpeaker exposes 6ch; ch0 (processed) is 
 ```bash
 cat >> ~/.bashrc <<'EOF'
 export JARVIS_INPUT_MODE=wake_word
-export JARVIS_AUDIO_DEVICE=0
+export JARVIS_AUDIO_DEVICE=0          # ReSpeaker (capture)
 export JARVIS_AUDIO_CHANNELS=6
+export JARVIS_AUDIO_OUTPUT=plughw:3,0 # Pebble speaker (TTS playback)
 EOF
 source ~/.bashrc
 ```

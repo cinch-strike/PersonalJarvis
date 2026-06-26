@@ -29,6 +29,8 @@ Env vars:
   JARVIS_AUDIO_DEVICE    sounddevice input device (index or name). Default
                          system default. Set to the ReSpeaker if needed.
   JARVIS_AUDIO_CHANNELS  Capture channels. Default 1.
+  JARVIS_AUDIO_OUTPUT    ALSA playback device for TTS (Linux), e.g. "plughw:3,0".
+                         Default: espeak/piper use the system default output.
   JARVIS_VAD_SILENCE     RMS energy below which a frame counts as silence.
                          Default 500. Lower if it cuts you off; raise if it
                          never stops.
@@ -75,6 +77,8 @@ OWW_MODEL = os.environ.get("JARVIS_OWW_MODEL", "hey_jarvis")     # openWakeWord 
 OWW_THRESHOLD = float(os.environ.get("JARVIS_OWW_THRESHOLD", "0.5"))
 AUDIO_DEVICE = _audio_device()
 AUDIO_CHANNELS = int(os.environ.get("JARVIS_AUDIO_CHANNELS", "1"))
+# ALSA playback device for TTS (Linux). e.g. "plughw:3,0" for a USB speaker.
+AUDIO_OUTPUT = os.environ.get("JARVIS_AUDIO_OUTPUT") or None
 VAD_SILENCE = float(os.environ.get("JARVIS_VAD_SILENCE", "500"))
 VAD_SILENCE_MS = int(os.environ.get("JARVIS_VAD_SILENCE_MS", "1000"))
 MAX_UTTERANCE_S = int(os.environ.get("JARVIS_MAX_UTTERANCE_S", "15"))

@@ -138,7 +138,9 @@ def check() -> int:
     ok = True
 
     try:
-        backend = tts.select_tts_backend(config.VOICE, override=config.TTS_BACKEND)
+        backend = tts.select_tts_backend(
+            config.VOICE, override=config.TTS_BACKEND, output_device=config.AUDIO_OUTPUT
+        )
         print(f"   TTS backend : {backend.name}")
     except tts.TTSError as e:
         ok = False
@@ -197,7 +199,9 @@ def main() -> int:
         return 1
 
     try:
-        tts_backend = tts.select_tts_backend(config.VOICE, override=config.TTS_BACKEND)
+        tts_backend = tts.select_tts_backend(
+            config.VOICE, override=config.TTS_BACKEND, output_device=config.AUDIO_OUTPUT
+        )
         print(f"   TTS backend: {tts_backend.name}")
     except tts.TTSError as e:
         print(f"\n❌ TTS unavailable: {e}")
