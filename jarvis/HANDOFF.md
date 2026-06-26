@@ -181,6 +181,8 @@ source ~/.bashrc
 
 **Status:** confirmed up to the `👂 Listening for "hey_jarvis"` state. **Not yet verified:** an actual "hey jarvis" + question round-trip (wake detection → Whisper → Claude → speak). That's the next test.
 
+**Feedback loop (fixed):** early on, Jarvis heard its own voice from the Pebble and replied to itself. Fixed in `input_trigger.py` (mic stream is paused via `stream.stop()/start()` around transcribe/think/speak, then drained + detector reset) and `tts.py` (piper now waits for `aplay` to finish). If self-triggering ever recurs it's live acoustic echo — lower Pebble volume, move mic from speaker, or raise `JARVIS_OWW_THRESHOLD`.
+
 **Tuning (once testing the live loop):**
 - Wake word not triggering / too touchy → adjust `JARVIS_OWW_THRESHOLD` (lower = easier, more false wakes; default 0.5).
 - Cuts you off mid-sentence → lower `JARVIS_VAD_SILENCE`; never stops → raise it.
