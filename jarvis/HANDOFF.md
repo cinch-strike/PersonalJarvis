@@ -196,7 +196,26 @@ source ~/.bashrc
   - `~/.bashrc` sets `PATH=$HOME/piper:$PATH` + `JARVIS_PIPER_MODEL=…alan-medium.onnx`; Jarvis then auto-selects piper over espeak. Playback still via `JARVIS_AUDIO_OUTPUT=plughw:3,0`.
   - Swap voices: download another from rhasspy/piper-voices on HF and repoint `JARVIS_PIPER_MODEL`. (The macOS prebuilt piper binary is broken — missing dylibs — but Linux/Pi is fine.)
 - **Phase 3.5 offline** — install Ollama (`ollama pull llama3.1`); `JARVIS_LLM_BACKEND` already supports auto-fallback.
-- **Auto-start 24/7** — a `systemd` service so Jarvis runs on boot.
+- **Auto-start 24/7 (systemd)** — see `phase1/jarvis.service.example`. Setup:
+  ```bash
+  # 1. env file (captures your CURRENT shell vars, incl. the API key)
+  mkdir -p ~/.config/jarvis
+  cat > ~/.config/jarvis/jarvis.env <<EOF
+  ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+  JARVIS_INPUT_MODE=wake_word
+  JARVIS_AUDIO_DEVICE=0
+  JARVIS_AUDIO_CHANNELS=6
+  JARVIS_AUDIO_OUTPUT=plughw:3,0
+  JARVIS_PIPER_MODEL=$JARVIS_PIPER_MODEL
+  PATH=$HOME/piper:/usr/local/bin:/usr/bin:/bin
+  EOF
+  chmod 600 ~/.config/jarvis/jarvis.env
+  # 2. install + enable the service
+  sudo cp ~/PersonalJarvis/jarvis/phase1/jarvis.service.example /etc/systemd/system/jarvis.service
+  sudo systemctl daemon-reload && sudo systemctl enable --now jarvis
+  journalctl -u jarvis -f          # watch it boot
+  ```
+  Stop the manual `python jarvis.py` first (two instances would fight over the mic). Manage with `sudo systemctl {status,restart,stop} jarvis`.
 
 > **Before running anything on the Pi:** `cd ~/PersonalJarvis && git pull`, then `cd jarvis/phase1 && .venv/bin/python jarvis.py --doctor`.
 

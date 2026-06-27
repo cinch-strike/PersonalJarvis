@@ -1,0 +1,28 @@
+# Jarvis systemd service (Pi) — run the wake-word assistant 24/7 on boot.
+#
+# Install:
+#   1. Put your env (incl. ANTHROPIC_API_KEY) in ~/.config/jarvis/jarvis.env
+#      (see HANDOFF.md "Running 24/7"). chmod 600 it.
+#   2. sudo cp this file to /etc/systemd/system/jarvis.service (drop .example)
+#   3. sudo systemctl daemon-reload && sudo systemctl enable --now jarvis
+#   4. Watch it: journalctl -u jarvis -f
+#
+# Adjust paths if your username isn't "jarvis".
+
+[Unit]
+Description=Jarvis voice assistant
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jarvis
+SupplementaryGroups=audio
+WorkingDirectory=/home/jarvis/PersonalJarvis/jarvis/phase1
+EnvironmentFile=/home/jarvis/.config/jarvis/jarvis.env
+ExecStart=/home/jarvis/PersonalJarvis/jarvis/phase1/.venv/bin/python jarvis.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
