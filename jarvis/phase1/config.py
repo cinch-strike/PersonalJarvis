@@ -19,6 +19,10 @@ Env vars:
                          (Claude when reachable, else Ollama offline).
   JARVIS_OLLAMA_MODEL    Ollama model tag. Default "llama3.1".
   JARVIS_OLLAMA_HOST     Ollama server URL. Default "http://localhost:11434".
+  JARVIS_ENABLE_TOOLS    Enable Claude tools (datetime/weather/web search).
+                         Default true.
+  JARVIS_TAVILY_KEY      Optional Tavily key for better web search (else keyless
+                         DuckDuckGo).
   JARVIS_WAKE_ENGINE     Wake engine (auto|porcupine|openwakeword). Default
                          "auto" = Porcupine if a key is set, else openWakeWord.
   JARVIS_PORCUPINE_KEY   Picovoice access key (Porcupine only; now needs
@@ -58,6 +62,13 @@ OLLAMA_HOST = os.environ.get("JARVIS_OLLAMA_HOST", "http://localhost:11434")
 
 # How many tokens Jarvis may generate per reply.
 MAX_TOKENS = int(os.environ.get("JARVIS_MAX_TOKENS", "600"))
+
+# Tools (Claude function-calling): live date/time, weather, web search.
+ENABLE_TOOLS = os.environ.get("JARVIS_ENABLE_TOOLS", "true").lower() in (
+    "1", "true", "yes", "on"
+)
+# Optional: better web search than keyless DuckDuckGo (free key: tavily.com).
+TAVILY_KEY = os.environ.get("JARVIS_TAVILY_KEY", "")
 
 
 def _audio_device():

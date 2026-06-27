@@ -127,6 +127,17 @@ def check_anthropic_key() -> Check:
     return Check("Anthropic key", status, "ANTHROPIC_API_KEY not set")
 
 
+def check_tools() -> Check:
+    import tools
+    registry = tools.build_registry()
+    if not config.ENABLE_TOOLS:
+        return Check("Tools", OK, "disabled (JARVIS_ENABLE_TOOLS=false)")
+    if not registry:
+        return Check("Tools", WARN, "enabled but none available")
+    note = "" if "web_search" in registry.names else " (web_search off: pip install ddgs)"
+    return Check("Tools", OK, ", ".join(registry.names) + note)
+
+
 def check_sqlite() -> Check:
     import memory
     path = memory.DB_PATH
@@ -181,6 +192,7 @@ ALL_CHECKS = (
     check_wake_word,
     check_llm,
     check_anthropic_key,
+    check_tools,
     check_sqlite,
     check_aws,
 )

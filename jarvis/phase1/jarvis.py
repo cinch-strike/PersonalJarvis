@@ -27,6 +27,7 @@ import aws_sync
 import tts
 import input_trigger
 import llm
+import tools
 import config
 
 # ─── Runtime state ────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ system_prompt = None    # base persona + recalled memory
 whisper_model = None
 llm_backend = None
 tts_backend = None
+tool_registry = None
 
 
 def build_system_prompt() -> str:
@@ -79,6 +81,7 @@ def ask_llm(user_text: str) -> str:
         system=system_prompt,
         messages=conversation_history,
         max_tokens=config.MAX_TOKENS,
+        tools=tool_registry,
     )
     conversation_history.append({"role": "assistant", "content": reply})
     memory.save_turn(session_id, "assistant", reply)
@@ -163,6 +166,9 @@ def check() -> int:
         ok = False
         print(f"   LLM backend : UNAVAILABLE — {e}")
 
+    registry = tools.build_registry()
+    print(f"   Tools       : {', '.join(registry.names) if registry else 'disabled'}")
+
     print(f"   Claude model: {config.CLAUDE_MODEL}")
     print(f"   Whisper     : {config.WHISPER_MODEL}")
     print(f"\n   {'✅ All selected backends instantiated.' if ok else '❌ One or more backends unavailable.'}\n")
@@ -173,6 +179,7 @@ def check() -> int:
 
 def main() -> int:
     global whisper_model, llm_backend, tts_backend, session_id, system_prompt
+    global tool_registry
 
     print("\n⚡ Jarvis Phase 1 starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
@@ -197,6 +204,10 @@ def main() -> int:
     except llm.LLMError as e:
         print(f"\n❌ LLM unavailable: {e}")
         return 1
+
+    tool_registry = tools.build_registry()
+    if tool_registry:
+        print(f"   Tools: {', '.join(tool_registry.names)}")
 
     try:
         tts_backend = tts.select_tts_backend(

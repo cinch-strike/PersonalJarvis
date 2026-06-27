@@ -49,8 +49,14 @@ class LLMBackend(ABC):
         """Best-effort, fast check that this backend is usable right now."""
 
     @abstractmethod
-    def generate(self, system: str, messages: List[Message], max_tokens: int) -> str:
-        """Return the assistant reply for `messages` under `system`."""
+    def generate(
+        self, system: str, messages: List[Message], max_tokens: int, tools=None
+    ) -> str:
+        """Return the assistant reply for `messages` under `system`.
+
+        `tools` is an optional tools.ToolRegistry; backends that support
+        function calling (Claude) will use it, others ignore it.
+        """
 
 
 class ClaudeBackend(LLMBackend):
@@ -78,18 +84,50 @@ class ClaudeBackend(LLMBackend):
                 raise LLMError(f"Claude client unavailable: {e}") from e
         return self._client
 
-    def generate(self, system: str, messages: List[Message], max_tokens: int) -> str:
+    def generate(
+        self, system: str, messages: List[Message], max_tokens: int, tools=None
+    ) -> str:
         client = self._get_client()
-        try:
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=system,
-                messages=messages,
-            )
-            return response.content[0].text
-        except Exception as e:
-            raise LLMError(f"Claude request failed: {e}") from e
+        schemas = tools.anthropic_schemas() if tools else None
+        # Work on a copy so the intermediate tool turns aren't persisted to the
+        # caller's conversation history / memory (only the final reply is).
+        convo = list(messages)
+
+        for _ in range(6):  # cap tool rounds to avoid runaway loops
+            kwargs = {
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": convo,
+            }
+            if schemas:
+                kwargs["tools"] = schemas
+            try:
+                response = client.messages.create(**kwargs)
+            except Exception as e:
+                raise LLMError(f"Claude request failed: {e}") from e
+
+            if response.stop_reason != "tool_use":
+                return "".join(
+                    b.text for b in response.content
+                    if getattr(b, "type", None) == "text"
+                ).strip()
+
+            # Claude asked to call one or more tools — run them and feed back.
+            convo.append({"role": "assistant", "content": response.content})
+            results = []
+            for block in response.content:
+                if getattr(block, "type", None) == "tool_use":
+                    print(f"  🔧 {block.name}({json.dumps(block.input)})")
+                    output = tools.run(block.name, block.input)
+                    results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": output,
+                    })
+            convo.append({"role": "user", "content": results})
+
+        raise LLMError("tool loop did not converge after several rounds")
 
 
 class OllamaBackend(LLMBackend):
@@ -114,7 +152,10 @@ class OllamaBackend(LLMBackend):
         except OSError:
             return False
 
-    def generate(self, system: str, messages: List[Message], max_tokens: int) -> str:
+    def generate(
+        self, system: str, messages: List[Message], max_tokens: int, tools=None
+    ) -> str:
+        # Local models here don't do function calling; tools are ignored.
         payload = {
             "model": self.model,
             "stream": False,
@@ -152,14 +193,16 @@ class FallbackLLM(LLMBackend):
     def available(self) -> bool:
         return any(b.available() for b in self.backends)
 
-    def generate(self, system: str, messages: List[Message], max_tokens: int) -> str:
+    def generate(
+        self, system: str, messages: List[Message], max_tokens: int, tools=None
+    ) -> str:
         errors = []
         for backend in self.backends:
             if not backend.available():
                 errors.append(f"{backend.name}: not available")
                 continue
             try:
-                return backend.generate(system, messages, max_tokens)
+                return backend.generate(system, messages, max_tokens, tools=tools)
             except LLMError as e:
                 errors.append(str(e))
         raise LLMError(

@@ -5,3 +5,4 @@ sounddevice
 numpy
 anthropic
 boto3
+ddgs            # keyless DuckDuckGo web-search tool (weather uses stdlib)

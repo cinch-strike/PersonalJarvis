@@ -11,6 +11,7 @@ import tts
 import input_trigger
 import llm
 import doctor
+import tools
 
 
 def _which_all(_binary):
@@ -152,7 +153,7 @@ class _Stub(llm.LLMBackend):
     def available(self):
         return self._available
 
-    def generate(self, system, messages, max_tokens):
+    def generate(self, system, messages, max_tokens, tools=None):
         self.calls += 1
         if self._fail:
             raise llm.LLMError(f"{self.name} boom")
@@ -263,6 +264,109 @@ class TestDoctor(unittest.TestCase):
         # Smoke test: full report runs end to end. AWS probe is network-tolerant.
         code = doctor.run()
         self.assertIn(code, (0, 1))
+
+
+class TestTools(unittest.TestCase):
+    def test_datetime_tool_returns_string(self):
+        out = tools.get_current_datetime()
+        self.assertIn(str(datetime_now_year()), out)
+
+    def test_registry_schemas_shape(self):
+        reg = tools.ToolRegistry([tools._DATETIME_TOOL])
+        schemas = reg.anthropic_schemas()
+        self.assertEqual(schemas[0]["name"], "get_current_datetime")
+        self.assertIn("input_schema", schemas[0])
+
+    def test_registry_run_dispatches(self):
+        reg = tools.ToolRegistry([tools._DATETIME_TOOL])
+        self.assertIn("It is", reg.run("get_current_datetime", {}))
+
+    def test_registry_unknown_tool_is_graceful(self):
+        reg = tools.ToolRegistry([tools._DATETIME_TOOL])
+        self.assertIn("Unknown tool", reg.run("nope", {}))
+
+    def test_tool_errors_are_caught_not_raised(self):
+        bad = tools.Tool("bad", "boom", {"type": "object", "properties": {}},
+                         func=lambda: (_ for _ in ()).throw(RuntimeError("x")))
+        reg = tools.ToolRegistry([bad])
+        self.assertIn("errored", reg.run("bad", {}))
+
+    def test_build_registry_disabled(self):
+        with mock.patch.object(tools.config, "ENABLE_TOOLS", False):
+            self.assertFalse(tools.build_registry())
+
+    def test_build_registry_has_core_tools(self):
+        with mock.patch.object(tools.config, "ENABLE_TOOLS", True):
+            reg = tools.build_registry()
+        self.assertIn("get_current_datetime", reg.names)
+        self.assertIn("get_weather", reg.names)
+
+
+def datetime_now_year():
+    import datetime as _dt
+    return _dt.datetime.now().year
+
+
+# Minimal fakes for Claude's tool-use response objects.
+class _Block:
+    def __init__(self, type, text=None, name=None, input=None, id=None):
+        self.type = type
+        self.text = text
+        self.name = name
+        self.input = input
+        self.id = id
+
+
+class _Resp:
+    def __init__(self, stop_reason, content):
+        self.stop_reason = stop_reason
+        self.content = content
+
+
+class TestClaudeToolLoop(unittest.TestCase):
+    def test_tool_use_then_final_answer(self):
+        calls = {"n": 0}
+
+        class FakeMessages:
+            def create(self, **kwargs):
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    return _Resp("tool_use", [
+                        _Block("tool_use", name="get_weather",
+                               input={"location": "Auckland"}, id="t1"),
+                    ])
+                # second call should include the tool_result we appended
+                return _Resp("end_turn", [_Block("text", text="It's sunny.")])
+
+        class FakeClient:
+            messages = FakeMessages()
+
+        backend = llm.ClaudeBackend()
+        backend._client = FakeClient()
+
+        reg = tools.ToolRegistry([
+            tools.Tool("get_weather", "w",
+                       {"type": "object", "properties": {}},
+                       func=lambda location: f"Sunny in {location}")
+        ])
+        out = backend.generate("sys", [{"role": "user", "content": "weather?"}], 100, tools=reg)
+        self.assertEqual(out, "It's sunny.")
+        self.assertEqual(calls["n"], 2)  # one tool round + final
+
+    def test_no_tools_plain_text(self):
+        class FakeMessages:
+            def create(self, **kwargs):
+                assert "tools" not in kwargs  # none passed
+                return _Resp("end_turn", [_Block("text", text="hello")])
+
+        class FakeClient:
+            messages = FakeMessages()
+
+        backend = llm.ClaudeBackend()
+        backend._client = FakeClient()
+        self.assertEqual(
+            backend.generate("sys", [{"role": "user", "content": "hi"}], 100), "hello"
+        )
 
 
 if __name__ == "__main__":

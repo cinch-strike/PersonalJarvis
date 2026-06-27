@@ -34,7 +34,8 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 | `config.py` | **All config in one place**, read from env vars with Mac-default fallbacks. |
 | `tts.py` | TTS abstraction: macOS `say` / Linux `piper` (→ `espeak-ng` fallback). |
 | `input_trigger.py` | Recording-trigger abstraction: `push_to_talk` (pynput) + `wake_word` (Porcupine + silence detection). |
-| `llm.py` | LLM abstraction: `claude` (online) / `ollama` (offline) / `auto` fallback. |
+| `llm.py` | LLM abstraction: `claude` (online) / `ollama` (offline) / `auto` fallback. Claude does the tool-use loop. |
+| `tools.py` | Claude tools: `get_current_datetime`, `get_weather` (Open-Meteo), `web_search` (DuckDuckGo/Tavily). |
 | `doctor.py` | Read-only environment readiness probe (`jarvis.py --doctor`). |
 | `memory.py` | SQLite memory module. Stores sessions + conversation turns. *(unchanged)* |
 | `aws_sync.py` | Pushes unsynced SQLite rows to DynamoDB on shutdown. *(unchanged)* |
@@ -74,6 +75,8 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_OLLAMA_MODEL` | `llama3.1` | Ollama model tag (offline) |
 | `JARVIS_OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
 | `JARVIS_MAX_TOKENS` | `600` | Max tokens per reply |
+| `JARVIS_ENABLE_TOOLS` | `true` | Enable Claude tools (datetime/weather/web search) |
+| `JARVIS_TAVILY_KEY` | — | Optional: better web search than keyless DuckDuckGo (free key at tavily.com) |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its
@@ -190,6 +193,7 @@ source ~/.bashrc
 - The `onnxruntime ... GpuDevices / CUDAExecutionProvider` warnings are harmless (CPU inference).
 
 **Then (optional, any order):**
+- **Live info via tools — DONE (Claude function-calling).** Jarvis can now answer with the current time, weather (Open-Meteo, no key), and web search. On the Pi, enable web search with `.venv/bin/python -m pip install ddgs` (now in requirements-common); weather/time need nothing. Optional better search: set `JARVIS_TAVILY_KEY`. Add more tools in `tools.py` (each: name + JSON schema + a function returning a string). Tools work on the Claude backend; local Ollama ignores them.
 - **Natural voice — DONE (piper + alan).** Installed on the Pi:
   - Binary: `~/piper/` (from rhasspy/piper `2023.11.14-2` `piper_linux_aarch64.tar.gz`).
   - Voice: `~/piper-voices/en_GB-alan-medium.onnx` (+ `.onnx.json`) — calm British male.
