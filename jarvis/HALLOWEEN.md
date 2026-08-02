@@ -53,6 +53,23 @@ GPIO and no way for our code to read them. We need a bare 3-pin module.
 
 Any spare GPIO works — set `JARVIS_MOTION_PIN` to match.
 
+The Jaycar XC4444 outputs **3V HIGH / 0V LOW** — safely under the Pi's 3.3V GPIO
+limit and well above its ~1.8V HIGH threshold, so it connects **directly**: no
+level shifter, no divider.
+
+### PIR (XC4444) setup gotchas
+
+- **Delay pot → minimum (~0.3s).** It sets how long OUT stays HIGH after a
+  trigger. Our software cooldown handles pacing; a long hardware delay leaves the
+  pin HIGH and can re-fire at an empty room.
+- **Sensitivity pot → start mid-range** (~3–7m). Tune so it catches people *at
+  the table*, not across the room.
+- **Jumper (if present) → "H"** (repeat trigger) — better for presence.
+- **Warm-up:** PIR self-calibrates for ~60s after power-up and may fire randomly.
+  Expected, not a bug.
+- PIR senses *movement*, not presence — someone standing perfectly still can drop
+  out. Fine for a party; swap to LD2410 (no code change) if it bothers you.
+
 ## Running it
 
 ```bash
