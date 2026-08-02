@@ -11,8 +11,14 @@ Env vars:
   JARVIS_SAMPLE_RATE     Mic sample rate (Hz). Default 16000.
   JARVIS_CLAUDE_MODEL    Claude model id. Default "claude-opus-4-8".
   JARVIS_TTS_BACKEND     Force a TTS backend (say|piper|espeak). Default auto.
-  JARVIS_INPUT_MODE      Recording trigger (push_to_talk|wake_word).
+  JARVIS_INPUT_MODE      Recording trigger (push_to_talk|wake_word|motion).
                          Default "push_to_talk".
+  JARVIS_PERSONA         Persona preset (jarvis|skull). Default "jarvis".
+  JARVIS_SYSTEM_PROMPT   Override the whole system prompt (beats JARVIS_PERSONA).
+  JARVIS_MOTION_PIN      BCM GPIO pin for the presence sensor. Default 17.
+  JARVIS_MOTION_COOLDOWN Seconds to ignore presence after a chat. Default 20.
+  JARVIS_MOTION_FOLLOW_UPS  Max back-and-forth turns per visitor. Default 4.
+  JARVIS_BARKER_LINES    "|"-separated call-out lines for motion mode.
   JARVIS_PIPER_MODEL     Path to a piper .onnx voice (Linux/piper only).
   JARVIS_PIPER_RATE      piper playback sample rate. Default 22050.
   JARVIS_LLM_BACKEND     LLM selection (auto|claude|ollama). Default "auto"
@@ -94,8 +100,53 @@ VAD_SILENCE = float(os.environ.get("JARVIS_VAD_SILENCE", "500"))
 VAD_SILENCE_MS = int(os.environ.get("JARVIS_VAD_SILENCE_MS", "1000"))
 MAX_UTTERANCE_S = int(os.environ.get("JARVIS_MAX_UTTERANCE_S", "15"))
 
-SYSTEM_PROMPT = (
-    "You are Jarvis, a sharp and concise AI assistant. "
-    "Keep responses to 2-3 sentences unless the user asks for detail. "
-    "Be direct, intelligent, occasionally dry. No filler phrases."
+# Motion/presence trigger (JARVIS_INPUT_MODE=motion) — a standalone prop that
+# notices people and starts the conversation itself. Sensor: LD2410 mmWave OUT
+# pin or a PIR, on this BCM GPIO pin.
+MOTION_PIN = int(os.environ.get("JARVIS_MOTION_PIN", "17"))
+MOTION_COOLDOWN_S = float(os.environ.get("JARVIS_MOTION_COOLDOWN", "20"))
+MOTION_FOLLOW_UPS = int(os.environ.get("JARVIS_MOTION_FOLLOW_UPS", "4"))
+
+_DEFAULT_BARKERS = [
+    "Well now... a living soul draws near. Speak, if you dare.",
+    "Ahhh, fresh company. Come closer — I don't bite. Much.",
+    "I sense a heartbeat. How inconvenient for you. Ask me something.",
+    "You there. Yes, you. What brings you to my table?",
+]
+
+# Lines the prop calls out when someone approaches. Separate with " | ".
+BARKER_LINES = [
+    line.strip()
+    for line in os.environ.get("JARVIS_BARKER_LINES", " | ".join(_DEFAULT_BARKERS)).split("|")
+    if line.strip()
+]
+
+_PERSONAS = {
+    "jarvis": (
+        "You are Jarvis, a sharp and concise AI assistant. "
+        "Keep responses to 2-3 sentences unless the user asks for detail. "
+        "Be direct, intelligent, occasionally dry. No filler phrases."
+    ),
+    # Halloween party centrepiece: a talking skull. Witty-creepy, not nightmare
+    # fuel — there are kids at the party.
+    "skull": (
+        "You are a talking skull at a Halloween party — an ancient, theatrical "
+        "spirit bound to a decorated skull on a table. You are witty, dramatic, "
+        "and playfully spooky, never genuinely frightening or gory. "
+        "Children and adults are both present: keep it PG, no violence, no death "
+        "threats, nothing that would upset a child. Tease guests affectionately, "
+        "make grand pronouncements, pretend to read fortunes and see their future. "
+        "CRITICAL: your replies are spoken aloud at a noisy party — keep them to "
+        "1-2 short sentences, always. Never break character or mention being an AI. "
+        "If you cannot understand what someone said, do not say so — respond with "
+        "something mysterious and theatrical instead, as though their words were "
+        "carried off by the spirits."
+    ),
+}
+
+# Persona: pick a preset with JARVIS_PERSONA, or override the whole prompt with
+# JARVIS_SYSTEM_PROMPT.
+PERSONA = os.environ.get("JARVIS_PERSONA", "jarvis").strip().lower()
+SYSTEM_PROMPT = os.environ.get("JARVIS_SYSTEM_PROMPT") or _PERSONAS.get(
+    PERSONA, _PERSONAS["jarvis"]
 )

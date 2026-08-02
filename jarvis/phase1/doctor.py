@@ -71,10 +71,26 @@ def check_input() -> Check:
         return Check("Input mode", FAIL, str(e))
 
 
+def check_motion() -> Check:
+    """Only relevant in motion mode (presence-triggered standalone prop)."""
+    if (config.INPUT_MODE or "").strip().lower() != "motion":
+        return Check("Motion sensor", OK, "n/a (not motion mode)")
+    try:
+        import gpiozero  # noqa: F401
+    except ImportError:
+        return Check("Motion sensor", FAIL,
+                     "gpiozero not installed — pip install gpiozero lgpio")
+    return Check(
+        "Motion sensor", OK,
+        f"gpiozero ready, GPIO {config.MOTION_PIN}, "
+        f"{len(config.BARKER_LINES)} barker line(s)",
+    )
+
+
 def check_wake_word() -> Check:
     """Only relevant when running in wake_word mode (the headless-Pi trigger)."""
     if (config.INPUT_MODE or "").strip().lower() != "wake_word":
-        return Check("Wake word", OK, "n/a (push_to_talk mode)")
+        return Check("Wake word", OK, "n/a (not wake_word mode)")
 
     engine = (config.WAKE_ENGINE or "auto").strip().lower()
     if engine == "auto":
@@ -190,6 +206,7 @@ ALL_CHECKS = (
     check_tts,
     check_input,
     check_wake_word,
+    check_motion,
     check_llm,
     check_anthropic_key,
     check_tools,

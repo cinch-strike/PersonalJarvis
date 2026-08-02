@@ -203,7 +203,83 @@ class OpenWakeWordEngine(WakeEngine):
             pass
 
 
-class WakeWordTrigger(InputTrigger):
+class AudioCaptureTrigger(InputTrigger):
+    """Base for triggers that own the mic stream and capture spoken replies.
+
+    Shares the "record until the speaker goes quiet" (RMS/VAD) capture and the
+    feedback-safe processing handoff between wake_word and motion.
+    """
+
+    manages_audio = True
+
+    def __init__(
+        self,
+        on_record_start: Callable[[], None],
+        on_record_stop: Callable[[], None],
+        on_quit: Callable[[], None],
+        *,
+        process_utterance: Optional[Callable[[List], None]] = None,
+        device: Optional[object] = None,
+        channels: int = 1,
+        silence_threshold: float = 500.0,
+        silence_ms: int = 1000,
+        max_utterance_s: int = 15,
+    ) -> None:
+        super().__init__(on_record_start, on_record_stop, on_quit)
+        self.process_utterance = process_utterance
+        self.device = device
+        self.channels = channels
+        self.silence_threshold = silence_threshold
+        self.silence_ms = silence_ms
+        self.max_utterance_s = max_utterance_s
+
+    @staticmethod
+    def _mono(block):
+        return block[:, 0] if block.ndim > 1 else block
+
+    def _capture_utterance(self, stream, frame_length: int, rate: int) -> List:
+        """Record from `stream` until the speaker pauses (or the cap is hit)."""
+        import numpy as np
+
+        silence_frames = max(1, int(self.silence_ms / 1000 * rate / frame_length))
+        max_frames = int(self.max_utterance_s * rate / frame_length)
+        captured: List = []
+        silence_run = 0
+        speech_started = False
+        for _ in range(max_frames):
+            block, _ = stream.read(frame_length)
+            samples = self._mono(block)
+            captured.append(samples.copy())
+            rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
+            if rms >= self.silence_threshold:
+                speech_started = True
+                silence_run = 0
+            elif speech_started:
+                silence_run += 1
+                if silence_run >= silence_frames:
+                    break
+        return captured
+
+    def _process_and_drain(self, stream, captured: List) -> None:
+        """Hand frames to the pipeline with the mic paused, then flush the backlog.
+
+        Pausing keeps our own TTS out of the stream; the drain clears anything
+        that still slipped in, so the prop can't hear and answer itself.
+        """
+        stream.stop()
+        try:
+            self.process_utterance(captured)
+        finally:
+            stream.start()
+        try:
+            pending = stream.read_available
+            if pending:
+                stream.read(pending)
+        except Exception:
+            pass
+
+
+class WakeWordTrigger(AudioCaptureTrigger):
     """Say the wake word to start; record until you stop talking; repeat.
 
     Owns the mic stream because it must read audio continuously to detect the
@@ -213,7 +289,6 @@ class WakeWordTrigger(InputTrigger):
     """
 
     name = "wake_word"
-    manages_audio = True
 
     def __init__(
         self,
@@ -233,18 +308,22 @@ class WakeWordTrigger(InputTrigger):
         silence_ms: int = 1000,
         max_utterance_s: int = 15,
     ) -> None:
-        super().__init__(on_record_start, on_record_stop, on_quit)
-        self.process_utterance = process_utterance
+        super().__init__(
+            on_record_start,
+            on_record_stop,
+            on_quit,
+            process_utterance=process_utterance,
+            device=device,
+            channels=channels,
+            silence_threshold=silence_threshold,
+            silence_ms=silence_ms,
+            max_utterance_s=max_utterance_s,
+        )
         self.engine = engine
         self.access_key = access_key
         self.keyword = keyword
         self.oww_model = oww_model
         self.oww_threshold = oww_threshold
-        self.device = device
-        self.channels = channels
-        self.silence_threshold = silence_threshold
-        self.silence_ms = silence_ms
-        self.max_utterance_s = max_utterance_s
 
     def _make_engine(self) -> WakeEngine:
         choice = (self.engine or "auto").strip().lower()
@@ -269,7 +348,6 @@ class WakeWordTrigger(InputTrigger):
 
         self._engine = self._make_engine()  # raises InputError with guidance
         try:
-            import numpy as np
             import sounddevice as sd
         except ImportError as e:
             self._engine.close()
@@ -278,12 +356,7 @@ class WakeWordTrigger(InputTrigger):
         engine = self._engine
         rate = engine.sample_rate
         frame_length = engine.frame_length
-        silence_frames = max(1, int(self.silence_ms / 1000 * rate / frame_length))
-        max_frames = int(self.max_utterance_s * rate / frame_length)
         label = self._label()
-
-        def mono(block):
-            return block[:, 0] if block.ndim > 1 else block
 
         print(f"\n  👂 Listening for \"{label}\"...  (Ctrl+C to quit)\n")
         try:
@@ -295,44 +368,15 @@ class WakeWordTrigger(InputTrigger):
             ) as stream:
                 while True:
                     block, _ = stream.read(frame_length)
-                    if not engine.process(mono(block)):
+                    if not engine.process(self._mono(block)):
                         continue
 
                     # Wake word heard → capture the question until silence.
                     self.on_record_start()
                     print("  🎙  Yes? Listening...", flush=True)
-                    captured: List = []
-                    silence_run = 0
-                    speech_started = False
-                    for _ in range(max_frames):
-                        block, _ = stream.read(frame_length)
-                        samples = mono(block)
-                        captured.append(samples.copy())
-                        rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
-                        if rms >= self.silence_threshold:
-                            speech_started = True
-                            silence_run = 0
-                        elif speech_started:
-                            silence_run += 1
-                            if silence_run >= silence_frames:
-                                break
-
+                    captured = self._capture_utterance(stream, frame_length, rate)
                     print("  ⏳ Processing...")
-                    # Pause the mic while we transcribe, think, and speak, so the
-                    # stream never buffers Jarvis's own voice from the speaker.
-                    stream.stop()
-                    try:
-                        self.process_utterance(captured)
-                    finally:
-                        stream.start()
-                    # Belt-and-suspenders: discard any residual buffered audio and
-                    # reset the detector so it can't hear/reply to itself (feedback).
-                    try:
-                        pending = stream.read_available
-                        if pending:
-                            stream.read(pending)
-                    except Exception:
-                        pass
+                    self._process_and_drain(stream, captured)
                     engine.reset()
                     print(f'\n  👂 Listening for "{label}"...\n')
         except KeyboardInterrupt:
@@ -342,9 +386,149 @@ class WakeWordTrigger(InputTrigger):
             engine.close()
 
 
+class MotionTrigger(AudioCaptureTrigger):
+    """Presence-triggered barker: it notices you, calls out, then converses.
+
+    Built for a standalone prop (e.g. a Halloween skull) where guests shouldn't
+    need to know a wake word. Flow per visitor:
+
+        presence detected → speak a barker line → listen → reply
+        → keep conversing while they keep talking → cooldown → re-arm
+
+    Sensor: any digital sensor whose pin reads HIGH on detection — an LD2410
+    mmWave module's OUT pin (detects a *standing* person, not just movement) or
+    a PIR like the HC-SR501. Read via gpiozero, which works on the Pi 5.
+    """
+
+    name = "motion"
+
+    def __init__(
+        self,
+        on_record_start: Callable[[], None],
+        on_record_stop: Callable[[], None],
+        on_quit: Callable[[], None],
+        *,
+        process_utterance: Optional[Callable[[List], None]] = None,
+        speak: Optional[Callable[[str], None]] = None,
+        barker_lines: Optional[List[str]] = None,
+        sensor_pin: int = 17,
+        cooldown_s: float = 20.0,
+        follow_up_turns: int = 4,
+        device: Optional[object] = None,
+        channels: int = 1,
+        sample_rate: int = 16000,
+        frame_length: int = 1024,
+        silence_threshold: float = 500.0,
+        silence_ms: int = 1000,
+        max_utterance_s: int = 15,
+    ) -> None:
+        super().__init__(
+            on_record_start,
+            on_record_stop,
+            on_quit,
+            process_utterance=process_utterance,
+            device=device,
+            channels=channels,
+            silence_threshold=silence_threshold,
+            silence_ms=silence_ms,
+            max_utterance_s=max_utterance_s,
+        )
+        self.speak = speak
+        self.barker_lines = list(barker_lines or [])
+        self.sensor_pin = sensor_pin
+        self.cooldown_s = cooldown_s
+        self.follow_up_turns = follow_up_turns
+        self.sample_rate = sample_rate
+        self.frame_length = frame_length
+        self._last_barker: Optional[str] = None
+
+    def _next_barker(self) -> Optional[str]:
+        """Pick a barker line, avoiding an immediate repeat of the last one."""
+        import random
+
+        if not self.barker_lines:
+            return None
+        choices = [b for b in self.barker_lines if b != self._last_barker] or self.barker_lines
+        line = random.choice(choices)
+        self._last_barker = line
+        return line
+
+    def _make_sensor(self):
+        try:
+            from gpiozero import MotionSensor
+        except ImportError as e:
+            raise InputError(
+                "motion mode needs gpiozero (Pi): "
+                ".venv/bin/python -m pip install gpiozero lgpio"
+            ) from e
+        try:
+            # MotionSensor works with any sensor that drives the pin HIGH on
+            # detection — PIR or an LD2410's OUT pin.
+            return MotionSensor(self.sensor_pin)
+        except Exception as e:
+            raise InputError(
+                f"could not open presence sensor on GPIO {self.sensor_pin}: {e}"
+            ) from e
+
+    def run(self) -> None:
+        if self.process_utterance is None:
+            raise InputError("motion trigger was given no process_utterance callback.")
+        try:
+            import sounddevice as sd
+        except ImportError as e:
+            raise InputError(f"motion mode needs sounddevice + numpy: {e}") from e
+
+        import time
+
+        sensor = self._make_sensor()
+        rate, frame_length = self.sample_rate, self.frame_length
+
+        print(f"\n  👁  Watching for visitors (GPIO {self.sensor_pin})...  (Ctrl+C to quit)\n")
+        try:
+            with sd.InputStream(
+                samplerate=rate,
+                channels=self.channels,
+                dtype="int16",
+                device=self.device,
+            ) as stream:
+                while True:
+                    # Idle until someone is actually there. Mic is stopped so we
+                    # don't buffer the whole party while waiting.
+                    stream.stop()
+                    sensor.wait_for_motion()
+                    print("  👻 Someone's there!")
+                    stream.start()
+
+                    # Call out to them, then converse until they stop replying.
+                    line = self._next_barker()
+                    if line and self.speak:
+                        self.speak(line)
+                    for _ in range(max(1, self.follow_up_turns)):
+                        self.on_record_start()
+                        print("  🎙  Listening...", flush=True)
+                        captured = self._capture_utterance(stream, frame_length, rate)
+                        if not captured:
+                            break
+                        print("  ⏳ Processing...")
+                        self._process_and_drain(stream, captured)
+
+                    print(f"  😴 Cooling down {self.cooldown_s:.0f}s...\n")
+                    time.sleep(self.cooldown_s)
+                    print(f"  👁  Watching for visitors...\n")
+        except KeyboardInterrupt:
+            print("\n  (motion listener stopped)")
+            self.on_quit()
+        finally:
+            try:
+                sensor.close()
+            except Exception:
+                pass
+
+
 _TRIGGERS = {
     PushToTalkTrigger.name: PushToTalkTrigger,
     WakeWordTrigger.name: WakeWordTrigger,
+    MotionTrigger.name: MotionTrigger,
 }
 
 
@@ -355,12 +539,14 @@ def select_input_trigger(
     on_quit: Callable[[], None],
     *,
     process_utterance: Optional[Callable[[List], None]] = None,
+    speak: Optional[Callable[[str], None]] = None,
     wake_config: Optional[dict] = None,
+    motion_config: Optional[dict] = None,
 ) -> InputTrigger:
     """Instantiate the input trigger named by `mode`.
 
-    `process_utterance` and `wake_config` are only used by audio-managing
-    triggers (wake_word); push_to_talk ignores them.
+    `process_utterance` / `speak` / `*_config` are only used by audio-managing
+    triggers (wake_word, motion); push_to_talk ignores them.
 
     Raises InputError with an actionable message for an unknown mode.
     """
@@ -376,5 +562,14 @@ def select_input_trigger(
             on_quit,
             process_utterance=process_utterance,
             **(wake_config or {}),
+        )
+    if cls is MotionTrigger:
+        return MotionTrigger(
+            on_record_start,
+            on_record_stop,
+            on_quit,
+            process_utterance=process_utterance,
+            speak=speak,
+            **(motion_config or {}),
         )
     return cls(on_record_start, on_record_stop, on_quit)

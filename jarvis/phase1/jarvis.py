@@ -225,6 +225,19 @@ def main() -> int:
             stop_recording,
             on_quit,
             process_utterance=handle_utterance,
+            speak=speak,
+            motion_config={
+                "barker_lines": config.BARKER_LINES,
+                "sensor_pin": config.MOTION_PIN,
+                "cooldown_s": config.MOTION_COOLDOWN_S,
+                "follow_up_turns": config.MOTION_FOLLOW_UPS,
+                "device": config.AUDIO_DEVICE,
+                "channels": config.AUDIO_CHANNELS,
+                "sample_rate": config.SAMPLE_RATE,
+                "silence_threshold": config.VAD_SILENCE,
+                "silence_ms": config.VAD_SILENCE_MS,
+                "max_utterance_s": config.MAX_UTTERANCE_S,
+            },
             wake_config={
                 "engine": config.WAKE_ENGINE,
                 "access_key": config.PORCUPINE_KEY,
@@ -249,7 +262,10 @@ def main() -> int:
     print(f"   Memory session #{session_id} started.")
 
     print("\n✅ Ready.\n")
-    if trigger.name == "wake_word":
+    if trigger.name == "motion":
+        print(f"   Walk up (GPIO {config.MOTION_PIN}) → it calls out → just talk back")
+        print("   Ctrl+C to quit\n")
+    elif trigger.name == "wake_word":
         print(f'   Say "{config.WAKE_KEYWORD}" → ask your question → it answers')
         print("   Ctrl+C to quit\n")
     else:

@@ -124,6 +124,54 @@ class TestInputSelection(unittest.TestCase):
         self.assertEqual(trigger.oww_model, "alexa")
         self.assertEqual(trigger.silence_ms, 750)
 
+    def test_motion_selectable_and_manages_audio(self):
+        trigger = input_trigger.select_input_trigger(
+            "motion", self._noop, self._noop, self._noop
+        )
+        self.assertIsInstance(trigger, input_trigger.MotionTrigger)
+        self.assertTrue(trigger.manages_audio)
+
+    def test_motion_config_passed_through(self):
+        trigger = input_trigger.select_input_trigger(
+            "motion", self._noop, self._noop, self._noop,
+            motion_config={"sensor_pin": 22, "cooldown_s": 5, "barker_lines": ["boo"]},
+        )
+        self.assertEqual(trigger.sensor_pin, 22)
+        self.assertEqual(trigger.cooldown_s, 5)
+        self.assertEqual(trigger.barker_lines, ["boo"])
+
+    def test_motion_barker_avoids_immediate_repeat(self):
+        trigger = input_trigger.select_input_trigger(
+            "motion", self._noop, self._noop, self._noop,
+            motion_config={"barker_lines": ["a", "b"]},
+        )
+        first = trigger._next_barker()
+        self.assertNotEqual(trigger._next_barker(), first)
+
+    def test_motion_barker_single_line_repeats_ok(self):
+        trigger = input_trigger.select_input_trigger(
+            "motion", self._noop, self._noop, self._noop,
+            motion_config={"barker_lines": ["only"]},
+        )
+        self.assertEqual(trigger._next_barker(), "only")
+        self.assertEqual(trigger._next_barker(), "only")
+
+    def test_motion_no_barkers_returns_none(self):
+        trigger = input_trigger.select_input_trigger(
+            "motion", self._noop, self._noop, self._noop,
+            motion_config={"barker_lines": []},
+        )
+        self.assertIsNone(trigger._next_barker())
+
+    def test_motion_run_without_gpio_raises(self):
+        # No gpiozero on a Mac / CI → clear InputError, not a cryptic crash.
+        trigger = input_trigger.select_input_trigger(
+            "motion", self._noop, self._noop, self._noop,
+            process_utterance=lambda f: None,
+        )
+        with self.assertRaises(input_trigger.InputError):
+            trigger.run()
+
     def test_unknown_wake_engine_raises(self):
         trigger = input_trigger.select_input_trigger(
             "wake_word", self._noop, self._noop, self._noop,
@@ -248,6 +296,10 @@ class TestDoctor(unittest.TestCase):
     def test_sqlite_writable_ok(self):
         # The project dir is writable in the test environment.
         self.assertEqual(doctor.check_sqlite().status, doctor.OK)
+
+    def test_motion_na_when_not_motion_mode(self):
+        with mock.patch.object(doctor.config, "INPUT_MODE", "wake_word"):
+            self.assertEqual(doctor.check_motion().status, doctor.OK)
 
     def test_wake_word_na_in_push_to_talk(self):
         with mock.patch.object(doctor.config, "INPUT_MODE", "push_to_talk"):
