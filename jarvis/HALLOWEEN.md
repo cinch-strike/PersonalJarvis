@@ -73,7 +73,10 @@ level shifter, no divider.
 ## Running it
 
 ```bash
-.venv/bin/python -m pip install gpiozero lgpio     # Pi 5 GPIO
+# Pi 5 GPIO. lgpio compiles from C source — install its build deps first or
+# pip fails with "command 'swig' failed: No such file or directory".
+sudo apt install -y swig python3-dev liblgpio-dev
+.venv/bin/python -m pip install gpiozero lgpio
 
 export JARVIS_INPUT_MODE=motion
 export JARVIS_PERSONA=skull
