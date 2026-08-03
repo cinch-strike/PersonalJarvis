@@ -125,7 +125,7 @@ def stop_recording() -> None:
 
 
 def on_quit() -> None:
-    speak("Jarvis going offline. Goodbye.")
+    speak(config.FAREWELL)
 
 
 def audio_callback(indata, frame_count, time_info, status) -> None:
@@ -273,7 +273,7 @@ def main() -> int:
         print("   ESC to quit\n")
     print("─" * 50)
 
-    speak("Jarvis online. I'm ready when you are.")
+    speak(config.GREETING)
 
     # Audio-managing triggers (wake_word) open their own stream; push_to_talk
     # relies on this shared stream + audio_callback.

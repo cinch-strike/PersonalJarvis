@@ -318,6 +318,23 @@ class TestDoctor(unittest.TestCase):
         self.assertIn(code, (0, 1))
 
 
+class TestPersonas(unittest.TestCase):
+    """Every persona must supply a prompt + spoken greeting/farewell."""
+
+    def test_all_personas_complete(self):
+        import config
+        for name, persona in config._PERSONAS.items():
+            for field in ("prompt", "greeting", "farewell"):
+                self.assertTrue(persona.get(field), f"{name} missing {field}")
+
+    def test_skull_persona_differs_from_jarvis(self):
+        import config
+        self.assertNotEqual(
+            config._PERSONAS["skull"]["greeting"],
+            config._PERSONAS["jarvis"]["greeting"],
+        )
+
+
 class TestTools(unittest.TestCase):
     def test_datetime_tool_returns_string(self):
         out = tools.get_current_datetime()

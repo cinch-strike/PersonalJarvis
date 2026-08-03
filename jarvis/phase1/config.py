@@ -14,7 +14,10 @@ Env vars:
   JARVIS_INPUT_MODE      Recording trigger (push_to_talk|wake_word|motion).
                          Default "push_to_talk".
   JARVIS_PERSONA         Persona preset (jarvis|skull). Default "jarvis".
+                         Sets the prompt plus the startup/shutdown lines.
   JARVIS_SYSTEM_PROMPT   Override the whole system prompt (beats JARVIS_PERSONA).
+  JARVIS_GREETING        Override the line spoken on startup.
+  JARVIS_FAREWELL        Override the line spoken on shutdown.
   JARVIS_MOTION_PIN      BCM GPIO pin for the presence sensor. Default 17.
   JARVIS_MOTION_COOLDOWN Seconds to ignore presence after a chat. Default 20.
   JARVIS_MOTION_FOLLOW_UPS  Max back-and-forth turns per visitor. Default 4.
@@ -121,32 +124,45 @@ BARKER_LINES = [
     if line.strip()
 ]
 
+# Each persona carries its own prompt plus the lines spoken on startup and
+# shutdown, so switching JARVIS_PERSONA changes the whole character — not just
+# the replies.
 _PERSONAS = {
-    "jarvis": (
-        "You are Jarvis, a sharp and concise AI assistant. "
-        "Keep responses to 2-3 sentences unless the user asks for detail. "
-        "Be direct, intelligent, occasionally dry. No filler phrases."
-    ),
+    "jarvis": {
+        "prompt": (
+            "You are Jarvis, a sharp and concise AI assistant. "
+            "Keep responses to 2-3 sentences unless the user asks for detail. "
+            "Be direct, intelligent, occasionally dry. No filler phrases."
+        ),
+        "greeting": "Jarvis online. I'm ready when you are.",
+        "farewell": "Jarvis going offline. Goodbye.",
+    },
     # Halloween party centrepiece: a talking skull. Witty-creepy, not nightmare
     # fuel — there are kids at the party.
-    "skull": (
-        "You are a talking skull at a Halloween party — an ancient, theatrical "
-        "spirit bound to a decorated skull on a table. You are witty, dramatic, "
-        "and playfully spooky, never genuinely frightening or gory. "
-        "Children and adults are both present: keep it PG, no violence, no death "
-        "threats, nothing that would upset a child. Tease guests affectionately, "
-        "make grand pronouncements, pretend to read fortunes and see their future. "
-        "CRITICAL: your replies are spoken aloud at a noisy party — keep them to "
-        "1-2 short sentences, always. Never break character or mention being an AI. "
-        "If you cannot understand what someone said, do not say so — respond with "
-        "something mysterious and theatrical instead, as though their words were "
-        "carried off by the spirits."
-    ),
+    "skull": {
+        "prompt": (
+            "You are a talking skull at a Halloween party — an ancient, theatrical "
+            "spirit bound to a decorated skull on a table. You are witty, dramatic, "
+            "and playfully spooky, never genuinely frightening or gory. "
+            "Children and adults are both present: keep it PG, no violence, no death "
+            "threats, nothing that would upset a child. Tease guests affectionately, "
+            "make grand pronouncements, pretend to read fortunes and see their future. "
+            "CRITICAL: your replies are spoken aloud at a noisy party — keep them to "
+            "1-2 short sentences, always. Never break character or mention being an AI. "
+            "If you cannot understand what someone said, do not say so — respond with "
+            "something mysterious and theatrical instead, as though their words were "
+            "carried off by the spirits."
+        ),
+        "greeting": "I stir... the veil grows thin tonight. Who dares disturb my rest?",
+        "farewell": "The darkness calls me back. Until next All Hallows...",
+    },
 }
 
-# Persona: pick a preset with JARVIS_PERSONA, or override the whole prompt with
-# JARVIS_SYSTEM_PROMPT.
+# Persona: pick a preset with JARVIS_PERSONA, or override individual pieces with
+# JARVIS_SYSTEM_PROMPT / JARVIS_GREETING / JARVIS_FAREWELL.
 PERSONA = os.environ.get("JARVIS_PERSONA", "jarvis").strip().lower()
-SYSTEM_PROMPT = os.environ.get("JARVIS_SYSTEM_PROMPT") or _PERSONAS.get(
-    PERSONA, _PERSONAS["jarvis"]
-)
+_persona = _PERSONAS.get(PERSONA, _PERSONAS["jarvis"])
+
+SYSTEM_PROMPT = os.environ.get("JARVIS_SYSTEM_PROMPT") or _persona["prompt"]
+GREETING = os.environ.get("JARVIS_GREETING") or _persona["greeting"]
+FAREWELL = os.environ.get("JARVIS_FAREWELL") or _persona["farewell"]
