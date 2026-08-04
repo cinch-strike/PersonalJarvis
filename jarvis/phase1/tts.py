@@ -16,9 +16,32 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
+
+# Roleplay personas love stage directions ("*grins toothily*") and markdown
+# emphasis. TTS reads the punctuation literally ("asterisk grins toothily
+# asterisk"), which shatters the illusion — strip it before speaking.
+_STAGE_DIRECTIONS = re.compile(r"\*[^*]*\*|_[^_]{1,80}_")
+_STRAY_MARKUP = re.compile(r"[*_`#]")
+_WHITESPACE = re.compile(r"\s+")
+
+
+def clean_for_speech(text: str) -> str:
+    """Strip stage directions and markdown so TTS doesn't read symbols aloud.
+
+    Whole `*...*` / `_..._` spans are removed (they're actions, not speech), then
+    any stray markup characters. Falls back to the original text if stripping
+    would leave nothing to say.
+    """
+    if not text:
+        return text
+    spoken = _STAGE_DIRECTIONS.sub(" ", text)
+    spoken = _STRAY_MARKUP.sub("", spoken)
+    spoken = _WHITESPACE.sub(" ", spoken).strip()
+    return spoken or _STRAY_MARKUP.sub("", text).strip()
 
 
 class TTSError(RuntimeError):

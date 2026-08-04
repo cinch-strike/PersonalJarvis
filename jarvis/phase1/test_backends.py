@@ -318,6 +318,43 @@ class TestDoctor(unittest.TestCase):
         self.assertIn(code, (0, 1))
 
 
+class TestCleanForSpeech(unittest.TestCase):
+    def test_strips_stage_direction(self):
+        self.assertEqual(
+            tts.clean_for_speech("*grins toothily* Welcome, mortal."),
+            "Welcome, mortal.",
+        )
+
+    def test_strips_trailing_stage_direction(self):
+        self.assertEqual(
+            tts.clean_for_speech("Come closer. *cackles*"), "Come closer."
+        )
+
+    def test_strips_multiple_and_collapses_space(self):
+        self.assertEqual(
+            tts.clean_for_speech("*sighs* Ah. *leans in* Your fate awaits."),
+            "Ah. Your fate awaits.",
+        )
+
+    def test_strips_stray_markup(self):
+        self.assertEqual(tts.clean_for_speech("**Boo!**"), "Boo!")
+
+    def test_plain_text_untouched(self):
+        text = "The veil grows thin tonight."
+        self.assertEqual(tts.clean_for_speech(text), text)
+
+    def test_all_stage_direction_falls_back_to_words(self):
+        # Never return empty — better to say the words than go silent.
+        self.assertEqual(tts.clean_for_speech("*cackles wildly*"), "cackles wildly")
+
+    def test_empty_input_safe(self):
+        self.assertEqual(tts.clean_for_speech(""), "")
+
+    def test_underscores_in_normal_prose_kept(self):
+        # A lone underscore (e.g. a filename) must not eat the sentence.
+        self.assertIn("file", tts.clean_for_speech("The file_name is cursed."))
+
+
 class TestPersonas(unittest.TestCase):
     """Every persona must supply a prompt + spoken greeting/farewell."""
 

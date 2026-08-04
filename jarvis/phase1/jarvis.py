@@ -59,9 +59,14 @@ def build_system_prompt() -> str:
 
 
 def speak(text: str) -> None:
-    """Speak text via the active, platform-selected TTS backend."""
-    print(f"\n  Jarvis: {text}\n")
-    tts_backend.speak(text)
+    """Speak text via the active, platform-selected TTS backend.
+
+    Stage directions and markdown are stripped first so the voice never reads
+    punctuation aloud (e.g. "*grins toothily*").
+    """
+    spoken = tts.clean_for_speech(text)
+    print(f"\n  Jarvis: {spoken}\n")
+    tts_backend.speak(spoken)
 
 
 def transcribe(recorded_frames: list) -> str:
