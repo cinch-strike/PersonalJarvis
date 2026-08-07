@@ -1,5 +1,9 @@
 # Halloween Build — the Talking Skull 💀
 
+> **Weekend plan (hardware has arrived) — see `WEEKEND-PLAN` section at the
+> bottom for the ordered step-by-step.**
+
+
 A standalone party centrepiece: a 3D-printed skull that **notices guests, calls
 out to them, and holds a conversation** in character. No wake word — people just
 walk up and talk.
@@ -110,3 +114,96 @@ Custom call-out lines: `JARVIS_BARKER_LINES="Line one | Line two | Line three"`.
 4. **Red LED eyes**, fog machine, etc.
 
 Each phase demos on its own — even stopping at (1) gives you a talking prop.
+
+---
+
+## WEEKEND-PLAN — wiring up the sensor
+
+Do these in order. Each step is verifiable before moving on.
+
+### 0. Where am I? (always start here)
+
+```bash
+ssh jarvis@jarvis.local
+sudo systemctl stop jarvis            # free the mic (the service grabs it at boot)
+cd ~/PersonalJarvis && git pull       # get the latest code
+cd jarvis/phase1
+.venv/bin/python jarvis.py --doctor   # shows persona, model, and every backend
+```
+
+`--doctor` is the "what's actually loaded?" answer — it prints the active
+persona and its greeting, the Claude model, TTS/input mode, and what's missing.
+
+### 1. Load the settings (they don't survive a new SSH session)
+
+```bash
+export JARVIS_PERSONA=skull
+export JARVIS_CLAUDE_MODEL=claude-haiku-4-5
+export JARVIS_AUDIO_DEVICE=0
+export JARVIS_AUDIO_CHANNELS=6
+export JARVIS_AUDIO_OUTPUT=plughw:3,0
+export JARVIS_OWW_THRESHOLD=0.6
+```
+
+Re-run `--doctor`: **Persona** should say `skull`, **Claude model** `claude-haiku-4-5`.
+
+### 2. Finish the GPIO install (blocked last time on a missing `swig`)
+
+```bash
+sudo apt install -y swig python3-dev liblgpio-dev
+.venv/bin/python -m pip install lgpio
+```
+
+### 3. Power OFF, then wire the PIR
+
+**Shut down before touching GPIO pins:** `sudo shutdown -h now`, wait for the LED
+to stop, unplug power.
+
+| XC4444 pin | Pi 5 pin |
+|---|---|
+| VCC | 5V — physical pin 2 |
+| OUT | GPIO 17 — physical pin 11 |
+| GND | GND — physical pin 6 |
+
+Set the PIR's **delay pot to minimum**, sensitivity to mid (see gotchas above).
+Power back up.
+
+### 4. Test the sensor alone (before involving Jarvis)
+
+```bash
+.venv/bin/python -c "
+from gpiozero import MotionSensor
+p = MotionSensor(17)
+print('Waiting ~60s for PIR warm-up, then wave at it...')
+while True:
+    p.wait_for_motion(); print('  MOTION')
+    p.wait_for_no_motion(); print('  clear')
+"
+```
+
+Wave → `MOTION`. Ctrl+C to stop. **Don't continue until this works** — it isolates
+wiring problems from software ones.
+
+### 5. Run the prop in motion mode
+
+```bash
+export JARVIS_INPUT_MODE=motion
+.venv/bin/python jarvis.py --doctor   # expect: Motion sensor ✅
+.venv/bin/python jarvis.py
+```
+
+Walk up → it should call out → talk back to it → it answers → cooldown.
+
+### 6. Tune (see the party table above)
+
+Most likely knobs: `JARVIS_MOTION_COOLDOWN` (too chatty),
+`JARVIS_MOTION_FOLLOW_UPS` (conversations drag), PIR sensitivity pot (triggers
+from too far away).
+
+### 7. Make it permanent (once happy)
+
+Add the exports to `~/.config/jarvis/jarvis.env` and
+`sudo systemctl restart jarvis` so it boots straight into party mode.
+
+**Later / optional:** print the skull, mount the servo, add ChatterPi jaw sync,
+red LED eyes.

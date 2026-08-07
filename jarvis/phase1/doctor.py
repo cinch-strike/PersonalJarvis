@@ -49,6 +49,29 @@ def check_python() -> Check:
     return Check("Python", WARN, f"{ver} — untested; project targets 3.11–3.13")
 
 
+def check_persona() -> Check:
+    """Show which character is loaded — the thing easiest to forget to export."""
+    known = ", ".join(sorted(config._PERSONAS))
+    if config.PERSONA not in config._PERSONAS:
+        return Check("Persona", WARN,
+                     f"unknown '{config.PERSONA}', using jarvis (known: {known})")
+    greeting = config.GREETING
+    if len(greeting) > 44:
+        greeting = greeting[:44].rstrip() + "..."
+    return Check("Persona", OK, f'{config.PERSONA} — "{greeting}"')
+
+
+def check_model() -> Check:
+    """Claude model + a nudge if it's a slow one for a live voice prop."""
+    model = config.CLAUDE_MODEL
+    if "haiku" in model:
+        return Check("Claude model", OK, f"{model} (fastest)")
+    if "opus" in model:
+        return Check("Claude model", WARN,
+                     f"{model} — slowest; claude-haiku-4-5 is snappier for voice")
+    return Check("Claude model", OK, model)
+
+
 def check_tts() -> Check:
     import tts
     try:
@@ -203,6 +226,8 @@ def check_aws() -> Check:
 # Order matters only for display.
 ALL_CHECKS = (
     check_python,
+    check_persona,
+    check_model,
     check_tts,
     check_input,
     check_wake_word,
