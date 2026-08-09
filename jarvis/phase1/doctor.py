@@ -72,6 +72,18 @@ def check_model() -> Check:
     return Check("Claude model", OK, model)
 
 
+def check_speech_speed() -> Check:
+    """Whisper size + end-of-speech wait — the two biggest latency knobs."""
+    model = config.WHISPER_MODEL
+    detail = f"whisper={model}, silence={config.VAD_SILENCE_MS}ms"
+    # transcribe() always passes language="en", so an English-only model is
+    # strictly better: same size, faster and more accurate for English.
+    if not model.endswith(".en"):
+        return Check("Speech speed", WARN,
+                     f"{detail} — '{model}.en' is faster + more accurate (English-only)")
+    return Check("Speech speed", OK, detail)
+
+
 def check_tts() -> Check:
     import tts
     try:
@@ -228,6 +240,7 @@ ALL_CHECKS = (
     check_python,
     check_persona,
     check_model,
+    check_speech_speed,
     check_tts,
     check_input,
     check_wake_word,
