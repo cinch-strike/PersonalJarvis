@@ -94,7 +94,13 @@ class PiperTTS(TTSBackend):
     name = "piper"
 
     def __init__(
-        self, model: str | None = None, rate: int = 22050, output_device: str | None = None
+        self,
+        model: str | None = None,
+        rate: int = 22050,
+        output_device: str | None = None,
+        length_scale: float | None = None,
+        noise_scale: float | None = None,
+        sentence_silence: float | None = None,
     ) -> None:
         self._bin = self._require(
             "piper",
@@ -112,24 +118,60 @@ class PiperTTS(TTSBackend):
             )
         self.rate = rate
         self.output_device = output_device
+        # Delivery controls — slower + more variation reads as menacing, which
+        # is what the Halloween prop wants. See JARVIS_PIPER_* env vars.
+        self.length_scale = length_scale
+        self.noise_scale = noise_scale
+        self.sentence_silence = sentence_silence
+
+    def _piper_cmd(self) -> list:
+        cmd = [self._bin, "--model", self.model, "--output-raw"]
+        if self.length_scale is not None:
+            cmd += ["--length_scale", str(self.length_scale)]
+        if self.noise_scale is not None:
+            cmd += ["--noise_scale", str(self.noise_scale)]
+        if self.sentence_silence is not None:
+            cmd += ["--sentence_silence", str(self.sentence_silence)]
+        return cmd
 
     def speak(self, text: str) -> None:
         aplay_cmd = [self._aplay, "-q", "-r", str(self.rate), "-f", "S16_LE", "-t", "raw"]
         if self.output_device:
             aplay_cmd += ["-D", self.output_device]
         aplay_cmd.append("-")
+
+        procs = []
         piper = subprocess.Popen(
-            [self._bin, "--model", self.model, "--output-raw"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            self._piper_cmd(), stdin=subprocess.PIPE, stdout=subprocess.PIPE
         )
-        aplay = subprocess.Popen(aplay_cmd, stdin=piper.stdout)
-        if piper.stdout:
-            piper.stdout.close()  # let aplay get EOF once piper is done
+        procs.append(piper)
+
+        # Optional pitch shift (JARVIS_PIPER_PITCH, in semitones — negative goes
+        # deeper/more demonic). Needs `sox`; skipped silently if absent so a
+        # missing package can never mute the prop.
+        upstream = piper
+        pitch = os.environ.get("JARVIS_PIPER_PITCH")
+        if pitch and shutil.which("sox"):
+            sox = subprocess.Popen(
+                ["sox", "-q", "-t", "raw", "-r", str(self.rate), "-e", "signed",
+                 "-b", "16", "-c", "1", "-", "-t", "raw", "-",
+                 "pitch", str(float(pitch) * 100)],
+                stdin=piper.stdout,
+                stdout=subprocess.PIPE,
+            )
+            if piper.stdout:
+                piper.stdout.close()
+            procs.append(sox)
+            upstream = sox
+
+        aplay = subprocess.Popen(aplay_cmd, stdin=upstream.stdout)
+        if upstream.stdout:
+            upstream.stdout.close()  # let aplay get EOF once upstream is done
         if piper.stdin:
             piper.stdin.write(text.encode("utf-8"))
             piper.stdin.close()
-        piper.wait()
+        for p in procs:
+            p.wait()
         aplay.wait()  # block until audio has actually finished playing, so the
                       # caller's mic-buffer drain captures ALL of our own speech
 
@@ -169,6 +211,20 @@ class EspeakTTS(TTSBackend):
             espeak.stdout.close()  # let espeak get SIGPIPE if aplay exits
         aplay.wait()
         espeak.wait()
+
+
+def _piper_delivery() -> dict:
+    """Voice-delivery knobs read from the environment (see JARVIS_PIPER_*)."""
+
+    def _f(name):
+        raw = os.environ.get(name)
+        return float(raw) if raw else None
+
+    return {
+        "length_scale": _f("JARVIS_PIPER_LENGTH_SCALE"),
+        "noise_scale": _f("JARVIS_PIPER_NOISE_SCALE"),
+        "sentence_silence": _f("JARVIS_PIPER_SENTENCE_SILENCE"),
+    }
 
 
 # Map explicit override values → the backend they select.
@@ -214,7 +270,7 @@ def select_tts_backend(
         if choice == "say":
             return MacSayTTS(voice)
         if choice == "piper":
-            return PiperTTS(output_device=output_device)
+            return PiperTTS(output_device=output_device, **_piper_delivery())
         return EspeakTTS(output_device=output_device)
 
     if system == "Darwin":
@@ -223,7 +279,7 @@ def select_tts_backend(
     if system == "Linux":
         # Prefer piper; fall back to espeak-ng if piper (or its model) is absent.
         try:
-            return PiperTTS(output_device=output_device)
+            return PiperTTS(output_device=output_device, **_piper_delivery())
         except TTSError as piper_err:
             try:
                 return EspeakTTS(output_device=output_device)

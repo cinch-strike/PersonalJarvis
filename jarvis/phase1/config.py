@@ -24,6 +24,11 @@ Env vars:
   JARVIS_BARKER_LINES    "|"-separated call-out lines for motion mode.
   JARVIS_PIPER_MODEL     Path to a piper .onnx voice (Linux/piper only).
   JARVIS_PIPER_RATE      piper playback sample rate. Default 22050.
+  JARVIS_PIPER_LENGTH_SCALE   Speech pace. >1 slower (1.3 = menacing), <1 faster.
+  JARVIS_PIPER_PITCH     Pitch shift in semitones; negative = deeper/demonic
+                         (e.g. -3). Needs `sox`; ignored if not installed.
+  JARVIS_PIPER_NOISE_SCALE    Vocal variation (default ~0.667); higher = wobblier.
+  JARVIS_PIPER_SENTENCE_SILENCE  Pause between sentences, seconds.
   JARVIS_LLM_BACKEND     LLM selection (auto|claude|ollama). Default "auto"
                          (Claude when reachable, else Ollama offline).
   JARVIS_OLLAMA_MODEL    Ollama model tag. Default "llama3.1".
