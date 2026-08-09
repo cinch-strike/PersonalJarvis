@@ -47,6 +47,39 @@ GPIO and no way for our code to read them. We need a bare 3-pin module.
 **Printed:** skull with hinged jaw (plenty of free models on Printables/Thingiverse
 — search "animatronic skull hinged jaw"), plus a base to hide the Pi + speaker.
 
+## Status: WORKING ✅
+
+Presence-triggered skull confirmed running on the Pi — walk up, it calls out,
+you talk back, it answers in character. Built with the Jaycar XC4444 PIR.
+
+### As-built wiring (this rig)
+
+| PIR pin (L→R) | Wire colour | Pi pin |
+|---|---|---|
+| VCC | 🟠 orange | 2 (5V) |
+| OUT | 🟤 brown | 11 (GPIO17) |
+| GND | 🔴 red | 6 (GND) |
+
+⚠️ Note **red is GND here**, not power — counterintuitive if you re-trace it later.
+
+### Gotchas that cost time (read before debugging)
+
+1. **The systemd service steals the mic.** After any reboot it auto-starts and
+   holds the ReSpeaker, so a manual run dies with
+   `PortAudioError: Invalid number of channels`, and `query_devices` shows the
+   ReSpeaker as **`0 in`** instead of `6 in`. Fix: `sudo systemctl stop jarvis`.
+   (`arecord -l` showing `Subdevices: 0/1` is the same symptom.)
+2. **Changing your router breaks WiFi silently.** Credentials are set at flash
+   time; the Pi only re-reads them on boot, so it can keep working until the
+   next power cycle and *then* vanish. Recovery: plug in Ethernet, `nmcli device
+   wifi list`, then
+   `sudo nmcli device wifi connect "SSID" password "..."`. Don't re-flash.
+3. **Exports don't persist** across SSH sessions — they live in `~/.bashrc`.
+   `jarvis.py --doctor` shows the *active* persona/model, so use it to confirm
+   what's really loaded before debugging anything else.
+4. **macOS `ping -W` is milliseconds**, not seconds (Linux is seconds) — a
+   `-W1` network sweep from a Mac silently fails on every host.
+
 ## Wiring (LD2410C or PIR — identical)
 
 | Sensor pin | Pi 5 pin |
