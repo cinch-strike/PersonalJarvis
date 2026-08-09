@@ -51,6 +51,31 @@ GPIO and no way for our code to read them. We need a bare 3-pin module.
 
 Presence-triggered skull confirmed running on the Pi — walk up, it calls out,
 you talk back, it answers in character. Built with the Jaycar XC4444 PIR.
+Autostarts on boot via systemd, so it runs standalone with nobody logged in.
+
+### Final party config (as tuned)
+
+Set in **both** `~/.bashrc` (manual runs) and `~/.config/jarvis/jarvis.env`
+(the systemd service) — keep them in sync or the prop behaves differently
+depending on how it was started (this bit us once with the voice).
+
+```bash
+JARVIS_PERSONA=skull
+JARVIS_INPUT_MODE=motion
+JARVIS_MOTION_PIN=17
+JARVIS_CLAUDE_MODEL=claude-haiku-4-5              # fastest — matters live
+JARVIS_WHISPER_MODEL=tiny.en                      # English-only: faster + more accurate
+JARVIS_VAD_SILENCE_MS=700                         # snappier end-of-speech
+JARVIS_PIPER_MODEL=$HOME/piper-voices/en_GB-alan-medium.onnx
+JARVIS_PIPER_LENGTH_SCALE=1.3                     # slower = menacing
+JARVIS_PIPER_PITCH=-3                             # deeper (needs sox)
+JARVIS_AUDIO_DEVICE=0                             # ReSpeaker
+JARVIS_AUDIO_CHANNELS=6
+JARVIS_AUDIO_OUTPUT=plughw:3,0                    # Pebble
+```
+
+Scarier still: raise `LENGTH_SCALE` toward 1.4–1.5 and `PITCH` to -5. Past
+about -6 it stops sounding like a voice and starts sounding like an artefact.
 
 ### As-built wiring (this rig)
 
