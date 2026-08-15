@@ -87,6 +87,43 @@ about -6 it stops sounding like a voice and starts sounding like an artefact.
 
 ⚠️ Note **red is GND here**, not power — counterintuitive if you re-trace it later.
 
+### Background ambience ✅
+
+A forest/graveyard loop plays while the prop is idle and **cuts the instant the
+PIR fires** — before the barker line and before listening. Music under a
+conversation would wreck Whisper accuracy and risk the prop hearing itself, and
+the sudden silence when the skull notices you is the better effect anyway.
+
+Setup used:
+```bash
+# on the Mac
+scp ~/Downloads/ambience-scary-jungle.mp3 jarvis@<pi-ip>:~/
+# on the Pi — aplay needs WAV; volume 0.3 keeps it background level
+mkdir -p ~/sounds
+ffmpeg -i ~/ambience-scary-jungle.mp3 -filter:a "volume=0.3" ~/sounds/graveyard.wav
+```
+Then `JARVIS_AMBIENCE_FILE=/home/jarvis/sounds/graveyard.wav` in **both**
+`~/.bashrc` and `~/.config/jarvis/jarvis.env`.
+
+Notes:
+- The code loops the file itself, so a short clip (30s–2min) is plenty. A
+  long file wastes SD space *and* never plays past the start, because the
+  ambience restarts from 0:00 after every visitor.
+- Pick a section that starts and ends at a similar level so the loop isn't
+  obvious. Avoid distinct one-off events (a bell, a scream) — they get
+  irritating every cycle.
+- Startup logs either `Ambience: <file>` or `(ambience off: <reason>)`.
+- `JARVIS_AMBIENCE_ENABLED=false` turns it off without removing the file.
+
+### Voice settings (as tuned)
+
+Alan at `JARVIS_PIPER_LENGTH_SCALE=1.2` — slightly slower, **no pitch shift**.
+Pitch-shifting via sox was tried at -3 semitones and sounded artificial: it
+moves the formants, so the voice reads as *processed* rather than deep. Slowing
+alone gives "menacing but human", which is scarier. TTS laughs ("ha ha ha") were
+also tried and sound comical — skip them; a recorded laugh WAV would be the way
+if ever wanted.
+
 ### Servo jaw — planned wiring (not yet fitted)
 
 Code is written and pushed (`jaw.py`, `jarvis.py --test-jaw`), disabled until
