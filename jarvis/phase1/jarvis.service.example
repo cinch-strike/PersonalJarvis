@@ -13,6 +13,10 @@
 Description=Jarvis voice assistant
 After=network-online.target sound.target
 Wants=network-online.target
+# Don't give up if the audio watchdog restarts us repeatedly over a long night.
+# NOTE: this key belongs in [Unit], not [Service] — systemd silently ignores it
+# in the wrong section ("Unknown key ... ignoring").
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -25,8 +29,9 @@ ExecStart=/home/jarvis/PersonalJarvis/jarvis/phase1/.venv/bin/python jarvis.py
 # restart on failure — that's the self-heal. RestartSec gives USB time to settle.
 Restart=on-failure
 RestartSec=5
-# Don't give up if the mic misbehaves repeatedly over a long party night.
-StartLimitIntervalSec=0
+# Without this, Python buffers stdout when it isn't a terminal, so journalctl
+# shows nothing until 4KB accumulates — the service looks dead when it's fine.
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
