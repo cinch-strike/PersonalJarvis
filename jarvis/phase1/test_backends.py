@@ -355,6 +355,53 @@ class TestCleanForSpeech(unittest.TestCase):
         self.assertIn("file", tts.clean_for_speech("The file_name is cursed."))
 
 
+class TestAudioWatchdog(unittest.TestCase):
+    """A mic that returns audio faster than real time has dropped out."""
+
+    def _trigger(self, **kw):
+        return input_trigger.select_input_trigger(
+            "motion", lambda: None, lambda: None, lambda: None,
+            motion_config=kw,
+        )
+
+    def test_realtime_capture_is_healthy(self):
+        t = self._trigger()
+        # 100 frames of 1024 @16kHz = 6.4s of audio, delivered in 6.4s: fine.
+        t._check_stream_alive(100, 1024, 16000, elapsed=6.4)
+        self.assertEqual(t._dead_streak, 0)
+
+    def test_instant_capture_counts_as_dead(self):
+        t = self._trigger()
+        t._check_stream_alive(100, 1024, 16000, elapsed=0.01)
+        self.assertEqual(t._dead_streak, 1)
+
+    def test_raises_after_consecutive_dead_captures(self):
+        t = self._trigger(max_dead_captures=3)
+        t._check_stream_alive(100, 1024, 16000, elapsed=0.01)
+        t._check_stream_alive(100, 1024, 16000, elapsed=0.01)
+        with self.assertRaises(input_trigger.AudioStreamError):
+            t._check_stream_alive(100, 1024, 16000, elapsed=0.01)
+
+    def test_healthy_capture_resets_the_streak(self):
+        # One blip must not accumulate toward a restart hours later.
+        t = self._trigger(max_dead_captures=3)
+        t._check_stream_alive(100, 1024, 16000, elapsed=0.01)
+        t._check_stream_alive(100, 1024, 16000, elapsed=6.4)
+        self.assertEqual(t._dead_streak, 0)
+
+    def test_short_capture_is_not_judged(self):
+        # A couple of frames legitimately return fast; don't call that dead.
+        t = self._trigger()
+        t._check_stream_alive(3, 1024, 16000, elapsed=0.001)
+        self.assertEqual(t._dead_streak, 0)
+
+    def test_audio_stream_error_is_an_input_error(self):
+        # jarvis.py catches it specifically; keep the hierarchy intact.
+        self.assertTrue(
+            issubclass(input_trigger.AudioStreamError, input_trigger.InputError)
+        )
+
+
 class TestJaw(unittest.TestCase):
     """The jaw is decoration — it must never break speech, whatever goes wrong."""
 

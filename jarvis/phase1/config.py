@@ -120,6 +120,10 @@ AUDIO_OUTPUT = os.environ.get("JARVIS_AUDIO_OUTPUT") or None
 VAD_SILENCE = float(os.environ.get("JARVIS_VAD_SILENCE", "500"))
 VAD_SILENCE_MS = int(os.environ.get("JARVIS_VAD_SILENCE_MS", "1000"))
 MAX_UTTERANCE_S = int(os.environ.get("JARVIS_MAX_UTTERANCE_S", "15"))
+# Self-heal: consecutive faster-than-real-time captures before we treat the mic
+# as dead and restart. USB audio has been seen to drop out after days of uptime
+# while the process stayed alive.
+MAX_DEAD_CAPTURES = int(os.environ.get("JARVIS_MAX_DEAD_CAPTURES", "3"))
 
 # Motion/presence trigger (JARVIS_INPUT_MODE=motion) — a standalone prop that
 # notices people and starts the conversation itself. Sensor: LD2410 mmWave OUT

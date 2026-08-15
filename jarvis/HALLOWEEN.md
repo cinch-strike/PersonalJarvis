@@ -87,6 +87,26 @@ about -6 it stops sounding like a voice and starts sounding like an artefact.
 
 ⚠️ Note **red is GND here**, not power — counterintuitive if you re-trace it later.
 
+### Self-heal watchdog
+
+**Failure seen in the field:** after ~5 days of uptime the ReSpeaker's USB audio
+stream died. `sounddevice` kept returning empty buffers instead of erroring, so
+the process stayed alive — systemd reported `active (running)` — while every
+visitor got "nothing heard". A silently dead prop.
+
+**Detection:** a working mic *cannot* return a second of audio in a millisecond;
+reads block until samples exist. So a capture that comes back far faster than
+real time means the device has stopped producing. After
+`JARVIS_MAX_DEAD_CAPTURES` (default 3) consecutive such captures, Jarvis exits
+non-zero and systemd restarts it with a fresh audio device. A single blip resets
+the counter, so it won't restart over one hiccup.
+
+Requires `Restart=on-failure` in the unit file (see `jarvis.service.example`).
+To confirm it recovered, look for restarts in `journalctl -u jarvis`.
+
+**Symptom to recognise:** log lines where `🎙 Listening` → `⏳ Processing` →
+`(nothing heard)` all share the same timestamp. Real capture takes 1–15s.
+
 ### Gotchas that cost time (read before debugging)
 
 1. **The systemd service steals the mic.** After any reboot it auto-starts and

@@ -254,6 +254,7 @@ def main() -> int:
                 "silence_threshold": config.VAD_SILENCE,
                 "silence_ms": config.VAD_SILENCE_MS,
                 "max_utterance_s": config.MAX_UTTERANCE_S,
+                "max_dead_captures": config.MAX_DEAD_CAPTURES,
             },
             wake_config={
                 "engine": config.WAKE_ENGINE,
@@ -266,6 +267,7 @@ def main() -> int:
                 "silence_threshold": config.VAD_SILENCE,
                 "silence_ms": config.VAD_SILENCE_MS,
                 "max_utterance_s": config.MAX_UTTERANCE_S,
+                "max_dead_captures": config.MAX_DEAD_CAPTURES,
             },
         )
         print(f"   Input mode: {trigger.name}")
@@ -294,16 +296,29 @@ def main() -> int:
 
     # Audio-managing triggers (wake_word) open their own stream; push_to_talk
     # relies on this shared stream + audio_callback.
-    if trigger.manages_audio:
-        trigger.run()
-    else:
-        with sd.InputStream(
-            samplerate=config.SAMPLE_RATE,
-            channels=1,
-            dtype="int16",
-            callback=audio_callback,
-        ):
+    # A dead mic exits non-zero so systemd restarts us with a fresh audio stack.
+    # Reopening in-process isn't enough when the USB device itself has dropped.
+    try:
+        if trigger.manages_audio:
             trigger.run()
+        else:
+            with sd.InputStream(
+                samplerate=config.SAMPLE_RATE,
+                channels=1,
+                dtype="int16",
+                callback=audio_callback,
+            ):
+                trigger.run()
+    except input_trigger.AudioStreamError as e:
+        print(f"\n❌ Audio watchdog: {e}")
+        print("   Exiting so the service restarts with a clean audio device.")
+        if jaw_servo is not None:
+            jaw_servo.close()
+        try:
+            memory.close_session(session_id)
+        except Exception:
+            pass
+        return 1
 
     # ─── Shutdown ─────────────────────────────────────────────────────────────
     # Reached after the trigger returns (ESC for push_to_talk, Ctrl+C for

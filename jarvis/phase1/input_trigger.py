@@ -25,12 +25,24 @@ lazily inside `run()` so this module stays importable anywhere — tests,
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional
 
 
 class InputError(RuntimeError):
     """Raised when an input trigger can't be used (missing dep, key, or mode)."""
+
+
+class AudioStreamError(InputError):
+    """The mic stopped delivering real-time audio — the device has dropped out.
+
+    Seen in the field: after days of uptime the ReSpeaker's USB audio stream
+    died, and sounddevice kept returning empty buffers instead of erroring. The
+    process stayed alive (so systemd saw it as healthy) while every capture
+    produced "nothing heard". Raising this lets the prop restart itself instead
+    of silently doing nothing all night.
+    """
 
 
 class InputTrigger(ABC):
@@ -224,6 +236,7 @@ class AudioCaptureTrigger(InputTrigger):
         silence_threshold: float = 500.0,
         silence_ms: int = 1000,
         max_utterance_s: int = 15,
+        max_dead_captures: int = 3,
     ) -> None:
         super().__init__(on_record_start, on_record_stop, on_quit)
         self.process_utterance = process_utterance
@@ -232,10 +245,36 @@ class AudioCaptureTrigger(InputTrigger):
         self.silence_threshold = silence_threshold
         self.silence_ms = silence_ms
         self.max_utterance_s = max_utterance_s
+        self.max_dead_captures = max_dead_captures
+        self._dead_streak = 0
 
     @staticmethod
     def _mono(block):
         return block[:, 0] if block.ndim > 1 else block
+
+    def _check_stream_alive(self, frames: int, frame_length: int,
+                            rate: int, elapsed: float) -> None:
+        """Flag a stream that returns audio faster than real time.
+
+        A working mic can't hand over a second of audio in a millisecond — reads
+        block until the samples exist. If they come back instantly the device has
+        stopped producing and we're reading empty buffers. Tolerate a couple of
+        blips, then raise so the caller can restart.
+        """
+        if frames < 10:
+            return                      # too short to judge
+        expected = frames * frame_length / rate
+        if elapsed >= expected * 0.3:
+            self._dead_streak = 0       # healthy
+            return
+        self._dead_streak += 1
+        print(f"  ⚠️  Mic returned {expected:.1f}s of audio in {elapsed:.3f}s "
+              f"— stream looks dead ({self._dead_streak}/{self.max_dead_captures})")
+        if self._dead_streak >= self.max_dead_captures:
+            raise AudioStreamError(
+                "microphone stopped delivering audio "
+                f"({self._dead_streak} dead captures in a row) — restarting"
+            )
 
     def _capture_utterance(self, stream, frame_length: int, rate: int) -> List:
         """Record from `stream` until the speaker pauses (or the cap is hit)."""
@@ -246,6 +285,7 @@ class AudioCaptureTrigger(InputTrigger):
         captured: List = []
         silence_run = 0
         speech_started = False
+        started = time.monotonic()
         for _ in range(max_frames):
             block, _ = stream.read(frame_length)
             samples = self._mono(block)
@@ -258,6 +298,9 @@ class AudioCaptureTrigger(InputTrigger):
                 silence_run += 1
                 if silence_run >= silence_frames:
                     break
+        self._check_stream_alive(
+            len(captured), frame_length, rate, time.monotonic() - started
+        )
         return captured
 
     def _process_and_drain(self, stream, captured: List) -> None:
@@ -421,6 +464,7 @@ class MotionTrigger(AudioCaptureTrigger):
         silence_threshold: float = 500.0,
         silence_ms: int = 1000,
         max_utterance_s: int = 15,
+        max_dead_captures: int = 3,
     ) -> None:
         super().__init__(
             on_record_start,
@@ -432,6 +476,7 @@ class MotionTrigger(AudioCaptureTrigger):
             silence_threshold=silence_threshold,
             silence_ms=silence_ms,
             max_utterance_s=max_utterance_s,
+            max_dead_captures=max_dead_captures,
         )
         self.speak = speak
         self.barker_lines = list(barker_lines or [])

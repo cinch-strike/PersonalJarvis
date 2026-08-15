@@ -21,8 +21,12 @@ SupplementaryGroups=audio
 WorkingDirectory=/home/jarvis/PersonalJarvis/jarvis/phase1
 EnvironmentFile=/home/jarvis/.config/jarvis/jarvis.env
 ExecStart=/home/jarvis/PersonalJarvis/jarvis/phase1/.venv/bin/python jarvis.py
+# The audio watchdog exits non-zero when the mic drops out, so the service must
+# restart on failure — that's the self-heal. RestartSec gives USB time to settle.
 Restart=on-failure
 RestartSec=5
+# Don't give up if the mic misbehaves repeatedly over a long party night.
+StartLimitIntervalSec=0
 
 [Install]
 WantedBy=multi-user.target
