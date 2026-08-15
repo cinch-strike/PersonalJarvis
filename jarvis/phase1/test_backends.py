@@ -355,6 +355,43 @@ class TestCleanForSpeech(unittest.TestCase):
         self.assertIn("file", tts.clean_for_speech("The file_name is cursed."))
 
 
+class TestJaw(unittest.TestCase):
+    """The jaw is decoration — it must never break speech, whatever goes wrong."""
+
+    def test_disabled_jaw_is_noop(self):
+        import jaw
+        j = jaw.Jaw(enabled=False)
+        j.start_talking(); j.stop_talking(); j.close()   # must not raise
+        self.assertIsNone(j._servo)
+
+    def test_missing_hardware_degrades_quietly(self):
+        import jaw
+        j = jaw.Jaw(enabled=True)     # no gpiozero/servo on a Mac or in CI
+        j.start_talking(); j.stop_talking(); j.close()   # must not raise
+        self.assertIsNotNone(j.error)
+
+    def test_angles_are_clamped_to_servo_range(self):
+        import jaw
+        moved = []
+
+        class FakeServo:
+            angle = 0
+            def __setattr__(self, k, v): moved.append(v)
+            def detach(self): pass
+            def close(self): pass
+
+        j = jaw.Jaw(enabled=True, min_angle=-45, max_angle=45)
+        j._servo = FakeServo()
+        j._move_to(999)      # way past the mechanical limit
+        j._move_to(-999)
+        self.assertEqual(moved, [45, -45])
+
+    def test_stop_talking_is_idempotent(self):
+        import jaw
+        j = jaw.Jaw(enabled=True)
+        j.stop_talking(); j.stop_talking()   # must not raise or hang
+
+
 class TestPersonas(unittest.TestCase):
     """Every persona must supply a prompt + spoken greeting/farewell."""
 

@@ -93,6 +93,19 @@ def _audio_device():
     return int(raw) if raw.isdigit() else raw
 
 
+# Servo jaw (consumed by jaw.py). Off unless explicitly enabled, so a rig with
+# no servo attached behaves exactly as before.
+JAW_ENABLED = os.environ.get("JARVIS_JAW_ENABLED", "false").lower() in (
+    "1", "true", "yes", "on"
+)
+SERVO_PIN = int(os.environ.get("JARVIS_SERVO_PIN", "18"))
+JAW_CLOSED_ANGLE = float(os.environ.get("JARVIS_JAW_CLOSED_ANGLE", "0"))
+JAW_OPEN_ANGLE = float(os.environ.get("JARVIS_JAW_OPEN_ANGLE", "25"))
+SERVO_MIN_ANGLE = float(os.environ.get("JARVIS_SERVO_MIN_ANGLE", "-45"))
+SERVO_MAX_ANGLE = float(os.environ.get("JARVIS_SERVO_MAX_ANGLE", "45"))
+JAW_RATE_HZ = float(os.environ.get("JARVIS_JAW_RATE_HZ", "6"))
+
+
 # Wake-word (consumed by input_trigger.WakeWordTrigger) + audio capture.
 # Engine: "auto" → Porcupine if a key is set, else keyless openWakeWord.
 WAKE_ENGINE = os.environ.get("JARVIS_WAKE_ENGINE", "auto")

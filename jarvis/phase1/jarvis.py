@@ -41,6 +41,7 @@ whisper_model = None
 llm_backend = None
 tts_backend = None
 tool_registry = None
+jaw_servo = None        # servo jaw; None unless JARVIS_JAW_ENABLED
 
 
 def build_system_prompt() -> str:
@@ -66,7 +67,13 @@ def speak(text: str) -> None:
     """
     spoken = tts.clean_for_speech(text)
     print(f"\n  Jarvis: {spoken}\n")
-    tts_backend.speak(spoken)
+    if jaw_servo is not None:
+        jaw_servo.start_talking()
+    try:
+        tts_backend.speak(spoken)
+    finally:
+        if jaw_servo is not None:
+            jaw_servo.stop_talking()
 
 
 def transcribe(recorded_frames: list) -> str:
@@ -184,7 +191,7 @@ def check() -> int:
 
 def main() -> int:
     global whisper_model, llm_backend, tts_backend, session_id, system_prompt
-    global tool_registry
+    global tool_registry, jaw_servo
 
     print("\n⚡ Jarvis Phase 1 starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
@@ -213,6 +220,11 @@ def main() -> int:
     tool_registry = tools.build_registry()
     if tool_registry:
         print(f"   Tools: {', '.join(tool_registry.names)}")
+
+    if config.JAW_ENABLED:
+        import jaw as jaw_module
+        jaw_servo = jaw_module.build_jaw()
+        print(f"   Jaw servo: GPIO {jaw_servo.pin}")
 
     try:
         tts_backend = tts.select_tts_backend(
@@ -298,6 +310,9 @@ def main() -> int:
     # wake_word). Close the session and push memory to the cloud — both are
     # best-effort and must not crash on the way out.
     print("\n   Shutting down...")
+    if jaw_servo is not None:
+        jaw_servo.close()
+
     try:
         memory.close_session(session_id)
     except Exception as e:
@@ -314,6 +329,9 @@ def main() -> int:
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if "--test-jaw" in args:
+        import jaw
+        sys.exit(jaw.self_test())
     if "--doctor" in args:
         import doctor
         sys.exit(doctor.run())
