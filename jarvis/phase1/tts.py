@@ -192,6 +192,7 @@ class ElevenLabsTTS(TTSBackend):
         model_id: str = "eleven_flash_v2_5",
         stability: float | None = None,
         similarity: float | None = None,
+        tempo: float | None = None,
         output_device: str | None = None,
         timeout: int = 15,
     ) -> None:
@@ -216,6 +217,9 @@ class ElevenLabsTTS(TTSBackend):
         self.model_id = model_id
         self.stability = stability
         self.similarity = similarity
+        # <1 slows delivery. Uses sox `tempo`, which time-stretches WITHOUT
+        # changing pitch — so it stays natural, unlike a pitch shift.
+        self.tempo = tempo
         self.output_device = output_device
         self.timeout = timeout
 
@@ -257,22 +261,26 @@ class ElevenLabsTTS(TTSBackend):
         if self.output_device:
             aplay_cmd += ["-D", self.output_device]
         aplay_cmd.append("-")
-        # Decode to WAV on stdout and pipe straight into aplay.
-        ff = subprocess.Popen(
+
+        # Decode MP3 → WAV. Buffered rather than streamed so the optional tempo
+        # stage gets a complete file (streaming through sox effects lets the
+        # first chunk out unprocessed — the bug that made piper change voice
+        # mid-sentence).
+        wav = subprocess.run(
             [self._ffmpeg, "-loglevel", "quiet", "-i", "pipe:0", "-f", "wav", "pipe:1"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        )
-        aplay = subprocess.Popen(aplay_cmd, stdin=ff.stdout)
-        if ff.stdout:
-            ff.stdout.close()
-        try:
-            if ff.stdin:
-                ff.stdin.write(mp3)
-                ff.stdin.close()
-        except BrokenPipeError:
-            pass
-        ff.wait()
-        aplay.wait()   # block until playback finishes, so the mic drain works
+            input=mp3, capture_output=True,
+        ).stdout
+        if not wav:
+            raise TTSError("ffmpeg produced no audio from the ElevenLabs response")
+
+        if self.tempo and shutil.which("sox"):
+            stretched = subprocess.run(
+                ["sox", "-q", "-t", "wav", "-", "-t", "wav", "-", "tempo", str(self.tempo)],
+                input=wav, capture_output=True,
+            ).stdout
+            wav = stretched or wav      # if sox fails, play it un-stretched
+
+        subprocess.run(aplay_cmd, input=wav)
 
 
 class FallbackTTS(TTSBackend):
@@ -381,6 +389,7 @@ def _elevenlabs_from_env(output_device):
         model_id=os.environ.get("JARVIS_ELEVENLABS_MODEL", "eleven_flash_v2_5"),
         stability=_f("JARVIS_ELEVENLABS_STABILITY"),
         similarity=_f("JARVIS_ELEVENLABS_SIMILARITY"),
+        tempo=_f("JARVIS_ELEVENLABS_TEMPO"),
         output_device=output_device,
     )
 

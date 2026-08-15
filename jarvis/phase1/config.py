@@ -28,6 +28,8 @@ Env vars:
   JARVIS_ELEVENLABS_MODEL      Default "eleven_flash_v2_5" (lowest latency).
   JARVIS_ELEVENLABS_STABILITY  0-1; lower = more expressive/variable.
   JARVIS_ELEVENLABS_SIMILARITY 0-1; how closely to match the original voice.
+  JARVIS_ELEVENLABS_TEMPO      Delivery pace; <1 slower (0.9 = deliberate).
+                               Time-stretches without changing pitch.
   JARVIS_PIPER_MODEL     Path to a piper .onnx voice (Linux/piper only).
   JARVIS_PIPER_RATE      piper playback sample rate. Default 22050.
   JARVIS_PIPER_LENGTH_SCALE   Speech pace. >1 slower (1.3 = menacing), <1 faster.
