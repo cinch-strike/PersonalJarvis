@@ -115,7 +115,38 @@ Notes:
 - Startup logs either `Ambience: <file>` or `(ambience off: <reason>)`.
 - `JARVIS_AMBIENCE_ENABLED=false` turns it off without removing the file.
 
-### Voice settings (as tuned)
+### Voice: ElevenLabs (primary) → piper/alan (fallback) ✅
+
+Cloud voice for realism, with a local voice behind it so a network blip can't
+silence the prop mid-party. `--doctor` shows `TTS backend: elevenlabs→piper`.
+
+```
+JARVIS_ELEVENLABS_KEY=sk_...              # keep in jarvis.env only, never in chat
+JARVIS_ELEVENLABS_VOICE=Tj9l48J9AJbry5yCP5eW
+JARVIS_ELEVENLABS_TEMPO=1.15              # >1 faster; time-stretch, pitch preserved
+```
+
+**Cost:** a party is roughly 40k characters — pennies. Voice *quality* is the
+thing to optimise, not price.
+
+**Gotchas hit:**
+- **Library voices need the Creator tier** (~$22/mo). The free tier only allows
+  premade voices (Adam/Antoni/Arnold). Error is explicit:
+  `"You need to be on the creator tier or above to use this voice."`
+  Cancel after Halloween if it's a one-off.
+- **Duplicate env lines break it.** Adding the key more than once made the shell
+  variable contain a newline → `curl: (43) bad argument`, HTTP `000`. Check with
+  `grep -c ELEVENLABS ~/.config/jarvis/jarvis.env` (should be 3).
+- **Test tempo cheaply:** fetch the audio once with curl, then re-stretch it
+  locally with `sox tempo` at several values — one generation, many auditions.
+- For manual runs, load the service config instead of duplicating the key:
+  `set -a; source ~/.config/jarvis/jarvis.env; set +a`
+
+**Internet dependency:** Claude (the brain) *requires* it — no internet means no
+replies at all. ElevenLabs degrades gracefully to alan. Party is at home on
+reliable WiFi, so this is a non-issue here; it would matter at another venue.
+
+### Piper voice settings (fallback, as tuned)
 
 Alan at `JARVIS_PIPER_LENGTH_SCALE=1.2` — slightly slower, **no pitch shift**.
 Pitch-shifting via sox was tried at -3 semitones and sounded artificial: it
