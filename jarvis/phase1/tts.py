@@ -140,40 +140,164 @@ class PiperTTS(TTSBackend):
             aplay_cmd += ["-D", self.output_device]
         aplay_cmd.append("-")
 
-        procs = []
-        piper = subprocess.Popen(
-            self._piper_cmd(), stdin=subprocess.PIPE, stdout=subprocess.PIPE
-        )
-        procs.append(piper)
-
-        # Optional pitch shift (JARVIS_PIPER_PITCH, in semitones — negative goes
-        # deeper/more demonic). Needs `sox`; skipped silently if absent so a
-        # missing package can never mute the prop.
-        upstream = piper
         pitch = os.environ.get("JARVIS_PIPER_PITCH")
-        if pitch and shutil.which("sox"):
-            sox = subprocess.Popen(
-                ["sox", "-q", "-t", "raw", "-r", str(self.rate), "-e", "signed",
-                 "-b", "16", "-c", "1", "-", "-t", "raw", "-",
-                 "pitch", str(float(pitch) * 100)],
-                stdin=piper.stdout,
-                stdout=subprocess.PIPE,
+        use_pitch = bool(pitch) and shutil.which("sox") is not None
+
+        if not use_pitch:
+            # No pitch shift: stream piper straight to aplay (lowest latency).
+            piper = subprocess.Popen(
+                self._piper_cmd(), stdin=subprocess.PIPE, stdout=subprocess.PIPE
             )
+            aplay = subprocess.Popen(aplay_cmd, stdin=piper.stdout)
             if piper.stdout:
                 piper.stdout.close()
-            procs.append(sox)
-            upstream = sox
+            if piper.stdin:
+                piper.stdin.write(text.encode("utf-8"))
+                piper.stdin.close()
+            piper.wait()
+            aplay.wait()
+            return
 
-        aplay = subprocess.Popen(aplay_cmd, stdin=upstream.stdout)
-        if upstream.stdout:
-            upstream.stdout.close()  # let aplay get EOF once upstream is done
-        if piper.stdin:
-            piper.stdin.write(text.encode("utf-8"))
-            piper.stdin.close()
-        for p in procs:
-            p.wait()
-        aplay.wait()  # block until audio has actually finished playing, so the
-                      # caller's mic-buffer drain captures ALL of our own speech
+        # Pitch shift: render fully, THEN process, THEN play. sox's pitch effect
+        # needs to buffer before it stabilises, so streaming through it live let
+        # the first chunk out unprocessed — the voice audibly changed mid-
+        # sentence. Replies are a sentence or two, so buffering costs little.
+        audio = subprocess.run(
+            self._piper_cmd(), input=text.encode("utf-8"), capture_output=True
+        ).stdout
+        shifted = subprocess.run(
+            ["sox", "-q", "-t", "raw", "-r", str(self.rate), "-e", "signed",
+             "-b", "16", "-c", "1", "-", "-t", "raw", "-",
+             "pitch", str(float(pitch) * 100)],
+            input=audio, capture_output=True,
+        ).stdout or audio          # if sox fails, play the unshifted audio
+        subprocess.run(aplay_cmd, input=shifted)
+
+
+class ElevenLabsTTS(TTSBackend):
+    """ElevenLabs cloud TTS — the most human-sounding option.
+
+    Requests MP3 (supported on every plan) and decodes with ffmpeg, which is
+    already installed for Whisper. Network failures raise TTSError so a
+    FallbackTTS wrapper can drop to piper rather than leaving the prop silent.
+    """
+
+    name = "elevenlabs"
+    API = "https://api.elevenlabs.io/v1/text-to-speech"
+
+    def __init__(
+        self,
+        api_key: str = "",
+        voice_id: str = "",
+        model_id: str = "eleven_flash_v2_5",
+        stability: float | None = None,
+        similarity: float | None = None,
+        output_device: str | None = None,
+        timeout: int = 15,
+    ) -> None:
+        if not api_key:
+            raise TTSError(
+                "elevenlabs needs an API key — set JARVIS_ELEVENLABS_KEY "
+                "(get one at elevenlabs.io)."
+            )
+        if not voice_id:
+            raise TTSError(
+                "elevenlabs needs a voice — set JARVIS_ELEVENLABS_VOICE to a "
+                "voice ID from your ElevenLabs voice library."
+            )
+        self._ffmpeg = self._require(
+            "ffmpeg", "Install it: sudo apt install ffmpeg"
+        )
+        self._aplay = self._require(
+            "aplay", "Install ALSA utils: sudo apt install alsa-utils"
+        )
+        self.api_key = api_key
+        self.voice_id = voice_id
+        self.model_id = model_id
+        self.stability = stability
+        self.similarity = similarity
+        self.output_device = output_device
+        self.timeout = timeout
+
+    def _fetch_mp3(self, text: str) -> bytes:
+        import json
+        import urllib.error
+        import urllib.request
+
+        payload: dict = {"text": text, "model_id": self.model_id}
+        settings = {}
+        if self.stability is not None:
+            settings["stability"] = self.stability
+        if self.similarity is not None:
+            settings["similarity_boost"] = self.similarity
+        if settings:
+            payload["voice_settings"] = settings
+
+        req = urllib.request.Request(
+            f"{self.API}/{self.voice_id}?output_format=mp3_22050_32",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "xi-api-key": self.api_key,
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "replace")[:200]
+            raise TTSError(f"ElevenLabs HTTP {e.code}: {detail}") from e
+        except Exception as e:
+            raise TTSError(f"ElevenLabs request failed: {e}") from e
+
+    def speak(self, text: str) -> None:
+        mp3 = self._fetch_mp3(text)
+        aplay_cmd = [self._aplay, "-q"]
+        if self.output_device:
+            aplay_cmd += ["-D", self.output_device]
+        aplay_cmd.append("-")
+        # Decode to WAV on stdout and pipe straight into aplay.
+        ff = subprocess.Popen(
+            [self._ffmpeg, "-loglevel", "quiet", "-i", "pipe:0", "-f", "wav", "pipe:1"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        )
+        aplay = subprocess.Popen(aplay_cmd, stdin=ff.stdout)
+        if ff.stdout:
+            ff.stdout.close()
+        try:
+            if ff.stdin:
+                ff.stdin.write(mp3)
+                ff.stdin.close()
+        except BrokenPipeError:
+            pass
+        ff.wait()
+        aplay.wait()   # block until playback finishes, so the mic drain works
+
+
+class FallbackTTS(TTSBackend):
+    """Try each backend in turn, per call.
+
+    Lets the prop use a cloud voice while guaranteeing it still speaks if the
+    network drops mid-party — a silent skull is worse than a robotic one.
+    """
+
+    def __init__(self, backends: list) -> None:
+        if not backends:
+            raise TTSError("FallbackTTS needs at least one backend.")
+        self.backends = backends
+        self.name = "→".join(b.name for b in backends)
+
+    def speak(self, text: str) -> None:
+        errors = []
+        for backend in self.backends:
+            try:
+                backend.speak(text)
+                return
+            except Exception as e:  # noqa: BLE001 — try the next voice
+                errors.append(f"{backend.name}: {e}")
+                print(f"  ⚠️  TTS {backend.name} failed ({e}); trying next")
+        raise TTSError("all TTS backends failed:\n   " + "\n   ".join(errors))
 
 
 class EspeakTTS(TTSBackend):
@@ -235,7 +359,30 @@ _OVERRIDE_ALIASES = {
     "piper": "piper",
     "espeak": "espeak",
     "espeak-ng": "espeak",
+    "elevenlabs": "elevenlabs",
+    "11labs": "elevenlabs",
 }
+
+
+def _elevenlabs_from_env(output_device):
+    """Build the ElevenLabs backend from env, or None if not configured."""
+
+    def _f(name):
+        raw = os.environ.get(name)
+        return float(raw) if raw else None
+
+    key = os.environ.get("JARVIS_ELEVENLABS_KEY", "")
+    voice = os.environ.get("JARVIS_ELEVENLABS_VOICE", "")
+    if not (key and voice):
+        return None
+    return ElevenLabsTTS(
+        api_key=key,
+        voice_id=voice,
+        model_id=os.environ.get("JARVIS_ELEVENLABS_MODEL", "eleven_flash_v2_5"),
+        stability=_f("JARVIS_ELEVENLABS_STABILITY"),
+        similarity=_f("JARVIS_ELEVENLABS_SIMILARITY"),
+        output_device=output_device,
+    )
 
 
 def select_tts_backend(
@@ -269,6 +416,20 @@ def select_tts_backend(
             )
         if choice == "say":
             return MacSayTTS(voice)
+        if choice == "elevenlabs":
+            eleven = _elevenlabs_from_env(output_device)
+            if eleven is None:
+                raise TTSError(
+                    "JARVIS_TTS_BACKEND=elevenlabs but JARVIS_ELEVENLABS_KEY "
+                    "and/or JARVIS_ELEVENLABS_VOICE are not set."
+                )
+            # Even when explicitly chosen, keep a local voice behind it — a
+            # network blip mustn't silence the prop.
+            try:
+                return FallbackTTS([eleven, PiperTTS(output_device=output_device,
+                                                     **_piper_delivery())])
+            except TTSError:
+                return eleven
         if choice == "piper":
             return PiperTTS(output_device=output_device, **_piper_delivery())
         return EspeakTTS(output_device=output_device)
@@ -277,10 +438,15 @@ def select_tts_backend(
         return MacSayTTS(voice)
 
     if system == "Linux":
-        # Prefer piper; fall back to espeak-ng if piper (or its model) is absent.
+        # ElevenLabs if configured (best quality), always with a local voice
+        # behind it. Otherwise piper, then espeak-ng.
+        eleven = _elevenlabs_from_env(output_device)
         try:
-            return PiperTTS(output_device=output_device, **_piper_delivery())
+            local = PiperTTS(output_device=output_device, **_piper_delivery())
+            return FallbackTTS([eleven, local]) if eleven else local
         except TTSError as piper_err:
+            if eleven is not None:
+                return eleven
             try:
                 return EspeakTTS(output_device=output_device)
             except TTSError as espeak_err:

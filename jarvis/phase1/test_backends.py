@@ -67,6 +67,44 @@ class TestTTSSelection(unittest.TestCase):
             backend = tts.select_tts_backend(system="Darwin", override="espeak")
         self.assertIsInstance(backend, tts.EspeakTTS)
 
+    def test_elevenlabs_selected_with_piper_fallback(self):
+        env = {"JARVIS_ELEVENLABS_KEY": "k", "JARVIS_ELEVENLABS_VOICE": "v",
+               "JARVIS_PIPER_MODEL": "/voices/x.onnx"}
+        with mock.patch("shutil.which", side_effect=_which_all), \
+             mock.patch.dict("os.environ", env):
+            backend = tts.select_tts_backend(system="Linux")
+        self.assertIsInstance(backend, tts.FallbackTTS)
+        self.assertEqual([b.name for b in backend.backends], ["elevenlabs", "piper"])
+
+    def test_no_elevenlabs_key_stays_on_piper(self):
+        env = {"JARVIS_PIPER_MODEL": "/voices/x.onnx"}
+        with mock.patch("shutil.which", side_effect=_which_all), \
+             mock.patch.dict("os.environ", env, clear=True):
+            backend = tts.select_tts_backend(system="Linux")
+        self.assertIsInstance(backend, tts.PiperTTS)
+
+    def test_fallback_uses_second_when_first_fails(self):
+        class Boom:
+            name = "boom"
+            def speak(self, text): raise RuntimeError("network down")
+
+        spoken = []
+
+        class Local:
+            name = "local"
+            def speak(self, text): spoken.append(text)
+
+        tts.FallbackTTS([Boom(), Local()]).speak("hello")
+        self.assertEqual(spoken, ["hello"])   # prop still talks
+
+    def test_fallback_raises_only_when_all_fail(self):
+        class Boom:
+            name = "boom"
+            def speak(self, text): raise RuntimeError("nope")
+
+        with self.assertRaises(tts.TTSError):
+            tts.FallbackTTS([Boom(), Boom()]).speak("hello")
+
     def test_unknown_override_raises(self):
         with self.assertRaises(tts.TTSError):
             tts.select_tts_backend(override="festival")

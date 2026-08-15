@@ -22,6 +22,12 @@ Env vars:
   JARVIS_MOTION_COOLDOWN Seconds to ignore presence after a chat. Default 20.
   JARVIS_MOTION_FOLLOW_UPS  Max back-and-forth turns per visitor. Default 4.
   JARVIS_BARKER_LINES    "|"-separated call-out lines for motion mode.
+  JARVIS_ELEVENLABS_KEY  ElevenLabs API key. Set this + _VOICE to use the cloud
+                         voice (piper stays as automatic fallback).
+  JARVIS_ELEVENLABS_VOICE      Voice ID from your ElevenLabs library.
+  JARVIS_ELEVENLABS_MODEL      Default "eleven_flash_v2_5" (lowest latency).
+  JARVIS_ELEVENLABS_STABILITY  0-1; lower = more expressive/variable.
+  JARVIS_ELEVENLABS_SIMILARITY 0-1; how closely to match the original voice.
   JARVIS_PIPER_MODEL     Path to a piper .onnx voice (Linux/piper only).
   JARVIS_PIPER_RATE      piper playback sample rate. Default 22050.
   JARVIS_PIPER_LENGTH_SCALE   Speech pace. >1 slower (1.3 = menacing), <1 faster.
