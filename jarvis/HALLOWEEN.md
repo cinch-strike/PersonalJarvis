@@ -87,6 +87,34 @@ about -6 it stops sounding like a voice and starts sounding like an artefact.
 
 ⚠️ Note **red is GND here**, not power — counterintuitive if you re-trace it later.
 
+### Servo jaw — planned wiring (not yet fitted)
+
+Code is written and pushed (`jaw.py`, `jarvis.py --test-jaw`), disabled until
+`JARVIS_JAW_ENABLED=true`. Waiting on male-to-female jumpers (Jaycar `WC6028`).
+
+All three servo wires land on the **outer** row, avoiding the PIR's pins:
+
+| SG90 wire | Pi pin | Note |
+|---|---|---|
+| 🔴 red (power) | **4** (5V) | *not* pin 2 — PIR has that |
+| 🟠 orange (signal) | **12** (GPIO18) | hardware-PWM capable |
+| 🟤 brown (ground) | **14** (GND) | |
+
+**Power decision:** fine off the Pi for a bare no-load bench test. For the final
+build with a real jaw, prefer a separate 5V supply — a stalled SG90 pulls
+~650–700mA continuously and can brown out the Pi (which risks SD corruption,
+not just a twitchy jaw). If powering separately, **tie the supply ground to a Pi
+GND pin** or the signal has no reference. A 470–1000µF cap across the servo's
+power leads absorbs inrush spikes and makes Pi-power much safer.
+
+Bench test (no skull needed):
+```bash
+sudo systemctl stop jarvis
+export JARVIS_JAW_ENABLED=true
+.venv/bin/python jarvis.py --test-jaw      # closed → open → closed → flap 5s
+```
+Then tune `JARVIS_JAW_CLOSED_ANGLE` / `JARVIS_JAW_OPEN_ANGLE` / `JARVIS_JAW_RATE_HZ`.
+
 ### Self-heal watchdog
 
 **Failure seen in the field:** after ~5 days of uptime the ReSpeaker's USB audio
