@@ -525,6 +525,53 @@ class TestJaw(unittest.TestCase):
         j.stop_talking(); j.stop_talking()   # must not raise or hang
 
 
+class TestBarkerGeneration(unittest.TestCase):
+    """Generated barkers must never stop the prop starting."""
+
+    def _run(self, reply=None, boom=False):
+        import jarvis
+
+        class FakeLLM:
+            def generate(self, **kw):
+                if boom:
+                    raise RuntimeError("network down")
+                return reply
+
+        original = jarvis.llm_backend
+        jarvis.llm_backend = FakeLLM()
+        try:
+            return jarvis.build_barkers()
+        finally:
+            jarvis.llm_backend = original
+
+    def test_parses_plain_lines(self):
+        out = self._run("One line here.\nTwo line here.\nThree.\nFour.\nFive.")
+        self.assertEqual(len(out), 5)
+
+    def test_strips_numbering_and_quotes(self):
+        out = self._run('1. "First."\n2) Second.\n- Third.\n• Fourth.\nFifth.')
+        self.assertIn("First.", out)
+        self.assertIn("Second.", out)
+        self.assertIn("Third.", out)
+
+    def test_dedupes(self):
+        out = self._run("Same.\nSame.\nOther.\nThird.\nFourth.")
+        self.assertEqual(len([x for x in out if x == "Same."]), 1)
+
+    def test_falls_back_when_llm_fails(self):
+        import config
+        self.assertEqual(self._run(boom=True), config.BARKER_LINES)
+
+    def test_falls_back_when_too_few_lines(self):
+        import config
+        self.assertEqual(self._run("Only one."), config.BARKER_LINES)
+
+    def test_disabled_uses_configured_lines(self):
+        import config, jarvis
+        with mock.patch.object(config, "BARKER_GENERATE", False):
+            self.assertEqual(jarvis.build_barkers(), config.BARKER_LINES)
+
+
 class TestPersonas(unittest.TestCase):
     """Every persona must supply a prompt + spoken greeting/farewell."""
 

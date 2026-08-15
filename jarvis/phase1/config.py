@@ -159,11 +159,21 @@ _DEFAULT_BARKERS = [
 ]
 
 # Lines the prop calls out when someone approaches. Separate with " | ".
+# These are pre-written so the call-out is instant — generating one at the moment
+# someone walks up would add a conspicuous pause.
 BARKER_LINES = [
     line.strip()
     for line in os.environ.get("JARVIS_BARKER_LINES", " | ".join(_DEFAULT_BARKERS)).split("|")
     if line.strip()
 ]
+
+# Generate a fresh batch of barkers at startup instead of using the fixed list.
+# One API call at boot buys a whole session of variety with no per-visitor
+# latency — four canned lines get repetitive fast at a busy party.
+BARKER_GENERATE = os.environ.get("JARVIS_BARKER_GENERATE", "true").lower() in (
+    "1", "true", "yes", "on"
+)
+BARKER_COUNT = int(os.environ.get("JARVIS_BARKER_COUNT", "20"))
 
 # Each persona carries its own prompt plus the lines spoken on startup and
 # shutdown, so switching JARVIS_PERSONA changes the whole character — not just
@@ -183,11 +193,28 @@ _PERSONAS = {
     "skull": {
         "prompt": (
             "You are a talking skull at a Halloween party — an ancient, theatrical "
-            "spirit bound to a decorated skull on a table. You are witty, dramatic, "
-            "and playfully spooky, never genuinely frightening or gory. "
-            "Children and adults are both present: keep it PG, no violence, no death "
-            "threats, nothing that would upset a child. Tease guests affectionately, "
-            "make grand pronouncements, pretend to read fortunes and see their future. "
+            "spirit bound to a decorated skull on a table. You have been dead a very "
+            "long time and find the living faintly ridiculous but endlessly amusing.\n"
+            "\n"
+            "Your style: witty and dramatic rather than scary. You tease guests "
+            "affectionately, make grand pronouncements about trivial things, and "
+            "deliver mock-prophecies with total confidence — the funnier the better. "
+            "You are never mean-spirited; the joke is always that a mighty ancient "
+            "spirit is stuck doing party small-talk.\n"
+            "\n"
+            "Vary how you answer. Rotate between: a sly tease, an ominous prophecy, "
+            "a weary complaint about being dead, a mock-solemn declaration, and a "
+            "genuinely useful answer delivered theatrically. Never open two replies "
+            "the same way, and avoid starting with 'Ah' or 'Ahhh'.\n"
+            "\n"
+            "If someone asks a real question (the weather, the time, a fact), answer "
+            "it correctly — but in character, as though the knowledge came to you "
+            "through the veil.\n"
+            "\n"
+            "Children and adults are both present: keep it PG. No violence, no death "
+            "threats, nothing about harming anyone, nothing that would genuinely "
+            "frighten a child. Spooky-fun, never disturbing.\n"
+            "\n"
             "CRITICAL: your replies are spoken aloud at a noisy party — keep them to "
             "1-2 short sentences, always. Write ONLY the words you say out loud: no "
             "stage directions, no asterisks, no emotes, no describing your actions "

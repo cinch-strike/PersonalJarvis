@@ -101,6 +101,54 @@ def ask_llm(user_text: str) -> str:
     return reply
 
 
+def build_barkers() -> list:
+    """Fresh call-out lines for this run, written by the LLM in character.
+
+    A fixed list gets repetitive fast at a busy party, but generating a line
+    when someone walks up would add an obvious pause. So we spend one API call
+    at startup and rotate through the results all session.
+
+    Falls back to the configured lines on any failure — the prop must still
+    start with no network.
+    """
+    if not config.BARKER_GENERATE:
+        return config.BARKER_LINES
+    try:
+        reply = llm_backend.generate(
+            system=config.SYSTEM_PROMPT,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Write {config.BARKER_COUNT} different opening lines to call out to "
+                    "a guest who has just walked up to you, in character. Vary them: some "
+                    "teasing, some ominous, some mock-prophetic, some curious. Each must be "
+                    "ONE short sentence that works spoken aloud at a noisy party. "
+                    "Output ONLY the lines, one per line, with no numbering, quotes, "
+                    "stage directions or commentary."
+                ),
+            }],
+            max_tokens=900,
+        )
+    except Exception as e:  # noqa: BLE001 — never block startup on this
+        print(f"   (barker generation failed: {e}; using default lines)")
+        return config.BARKER_LINES
+
+    lines, seen = [], set()
+    for raw in reply.splitlines():
+        line = raw.strip().lstrip("0123456789.-–—•) ").strip().strip('"').strip()
+        # Drop empties, headers, and anything too long to work as a call-out.
+        if not line or len(line) > 160 or line.endswith(":"):
+            continue
+        if line.lower() not in seen:
+            seen.add(line.lower())
+            lines.append(line)
+
+    if len(lines) < 4:
+        print("   (barker generation gave too few usable lines; using defaults)")
+        return config.BARKER_LINES
+    return lines
+
+
 def handle_utterance(captured: list) -> None:
     """Transcribe a captured recording, get a reply, and speak it.
 
@@ -227,6 +275,11 @@ def main() -> int:
         jaw_servo = jaw_module.build_jaw()
         print(f"   Jaw servo: GPIO {jaw_servo.pin}")
 
+    barkers = config.BARKER_LINES
+    if config.INPUT_MODE.strip().lower() == "motion":
+        barkers = build_barkers()
+        print(f"   Barker lines: {len(barkers)}")
+
     import ambience as ambience_module
     ambient = ambience_module.build_ambience()
     if ambient.available():
@@ -253,7 +306,7 @@ def main() -> int:
             speak=speak,
             ambience=ambient,
             motion_config={
-                "barker_lines": config.BARKER_LINES,
+                "barker_lines": barkers,
                 "sensor_pin": config.MOTION_PIN,
                 "cooldown_s": config.MOTION_COOLDOWN_S,
                 "ambience_resume_s": config.AMBIENCE_RESUME_S,
