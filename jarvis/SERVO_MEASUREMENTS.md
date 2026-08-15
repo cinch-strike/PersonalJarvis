@@ -26,6 +26,18 @@ Derived: boss rises **4.38** above the body; spline rises **2.81** above the bos
 | **Screw-hole spacing (centre-to-centre)** | **28.00** ⭐ |
 | Screw hole diameter | **2.0** (M2) |
 | Tab thickness | **2.51** |
+| **Tab height** (body bottom → tab underside) | **15.73** |
+| Tab underside → spline tip | **13.77** |
+
+The tab underside is the face that seats on a mounting plate, so tab height sets
+how far the spline stands proud of that plate — which fixes the gap between the
+cradle wall and the jaw.
+
+Measured indirectly: bench → **top** of tab = 18.24, minus the 2.51 tab
+thickness. The underside is tucked against the body and can't take a caliper jaw
+flat; the top surface is exposed and easy. Both of the expected ranges checked
+out (15–17 for tab height, 13–14 for underside→spline), and it leaves 6.58 of
+body above the tab underside, which is right for an SG90.
 
 ⭐ The hole spacing is the one with no tolerance — get it wrong and the servo
 won't bolt in.
