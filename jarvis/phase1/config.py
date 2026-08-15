@@ -99,6 +99,10 @@ AMBIENCE_FILE = os.environ.get("JARVIS_AMBIENCE_FILE", "")
 AMBIENCE_ENABLED = os.environ.get("JARVIS_AMBIENCE_ENABLED", "true").lower() in (
     "1", "true", "yes", "on"
 )
+# Seconds after a conversation before the ambience fades back in. Kept separate
+# from the motion cooldown so the visitor isn't left in dead silence while the
+# prop is still ignoring the sensor.
+AMBIENCE_RESUME_S = float(os.environ.get("JARVIS_AMBIENCE_RESUME_S", "5"))
 
 # Servo jaw (consumed by jaw.py). Off unless explicitly enabled, so a rig with
 # no servo attached behaves exactly as before.

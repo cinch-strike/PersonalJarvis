@@ -429,6 +429,20 @@ class TestAmbience(unittest.TestCase):
         a = ambience.Ambience(path="", enabled=True)
         a.stop(); a.stop()       # must not raise or hang
 
+    def test_resume_delay_is_configurable(self):
+        t = input_trigger.select_input_trigger(
+            "motion", lambda: None, lambda: None, lambda: None,
+            motion_config={"ambience_resume_s": 8, "cooldown_s": 20},
+        )
+        self.assertEqual(t.ambience_resume_s, 8)
+
+    def test_resume_delay_defaults_sensible(self):
+        t = input_trigger.select_input_trigger(
+            "motion", lambda: None, lambda: None, lambda: None
+        )
+        # Must come back before the cooldown ends, or it's pointless.
+        self.assertLess(t.ambience_resume_s, t.cooldown_s)
+
     def test_device_included_in_play_command(self):
         import ambience
         a = ambience.Ambience(path="/tmp/x.wav", device="plughw:3,0")

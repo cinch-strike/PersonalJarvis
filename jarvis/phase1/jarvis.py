@@ -256,6 +256,7 @@ def main() -> int:
                 "barker_lines": config.BARKER_LINES,
                 "sensor_pin": config.MOTION_PIN,
                 "cooldown_s": config.MOTION_COOLDOWN_S,
+                "ambience_resume_s": config.AMBIENCE_RESUME_S,
                 "follow_up_turns": config.MOTION_FOLLOW_UPS,
                 "device": config.AUDIO_DEVICE,
                 "channels": config.AUDIO_CHANNELS,

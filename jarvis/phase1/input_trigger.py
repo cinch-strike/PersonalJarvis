@@ -457,6 +457,7 @@ class MotionTrigger(AudioCaptureTrigger):
         barker_lines: Optional[List[str]] = None,
         sensor_pin: int = 17,
         cooldown_s: float = 20.0,
+        ambience_resume_s: float = 5.0,
         follow_up_turns: int = 4,
         device: Optional[object] = None,
         channels: int = 1,
@@ -484,6 +485,9 @@ class MotionTrigger(AudioCaptureTrigger):
         self.barker_lines = list(barker_lines or [])
         self.sensor_pin = sensor_pin
         self.cooldown_s = cooldown_s
+        # Ambience comes back part-way through the cooldown rather than at the
+        # end of it, so the visitor doesn't walk away into dead silence.
+        self.ambience_resume_s = ambience_resume_s
         self.follow_up_turns = follow_up_turns
         self.sample_rate = sample_rate
         self.frame_length = frame_length
@@ -567,7 +571,11 @@ class MotionTrigger(AudioCaptureTrigger):
                         self._process_and_drain(stream, captured)
 
                     print(f"  😴 Cooling down {self.cooldown_s:.0f}s...\n")
-                    time.sleep(self.cooldown_s)
+                    resume_at = max(0.0, min(self.ambience_resume_s, self.cooldown_s))
+                    time.sleep(resume_at)
+                    if self.ambience is not None:
+                        self.ambience.start()
+                    time.sleep(self.cooldown_s - resume_at)
                     print(f"  👁  Watching for visitors...\n")
         except KeyboardInterrupt:
             print("\n  (motion listener stopped)")
