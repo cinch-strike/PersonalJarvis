@@ -402,6 +402,40 @@ class TestAudioWatchdog(unittest.TestCase):
         )
 
 
+class TestAmbience(unittest.TestCase):
+    """Ambience is decoration — it must never break the prop, and must go
+    silent before the mic listens."""
+
+    def test_no_file_is_disabled(self):
+        import ambience
+        a = ambience.Ambience(path="", enabled=True)
+        self.assertFalse(a.available())
+        a.start(); a.stop()      # must not raise
+
+    def test_missing_file_reports_and_stays_quiet(self):
+        import ambience
+        a = ambience.Ambience(path="/no/such/file.wav", enabled=True)
+        self.assertFalse(a.available())
+        self.assertIn("not found", a.error)
+        a.start(); a.stop()      # must not raise
+
+    def test_explicitly_disabled(self):
+        import ambience
+        a = ambience.Ambience(path="/tmp/x.wav", enabled=False)
+        self.assertFalse(a.available())
+
+    def test_stop_is_idempotent(self):
+        import ambience
+        a = ambience.Ambience(path="", enabled=True)
+        a.stop(); a.stop()       # must not raise or hang
+
+    def test_device_included_in_play_command(self):
+        import ambience
+        a = ambience.Ambience(path="/tmp/x.wav", device="plughw:3,0")
+        self.assertIn("-D", a._cmd())
+        self.assertIn("plughw:3,0", a._cmd())
+
+
 class TestJaw(unittest.TestCase):
     """The jaw is decoration — it must never break speech, whatever goes wrong."""
 

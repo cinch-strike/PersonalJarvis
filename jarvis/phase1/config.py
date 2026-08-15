@@ -93,6 +93,13 @@ def _audio_device():
     return int(raw) if raw.isdigit() else raw
 
 
+# Background ambience (consumed by ambience.py). Loops while idle, stops while
+# the prop is listening so it can't wreck speech recognition.
+AMBIENCE_FILE = os.environ.get("JARVIS_AMBIENCE_FILE", "")
+AMBIENCE_ENABLED = os.environ.get("JARVIS_AMBIENCE_ENABLED", "true").lower() in (
+    "1", "true", "yes", "on"
+)
+
 # Servo jaw (consumed by jaw.py). Off unless explicitly enabled, so a rig with
 # no servo attached behaves exactly as before.
 JAW_ENABLED = os.environ.get("JARVIS_JAW_ENABLED", "false").lower() in (

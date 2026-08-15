@@ -15,6 +15,7 @@ Requirements: see requirements-*.txt
 Setup: see SETUP.md
 """
 
+import os
 import platform
 import sys
 
@@ -226,6 +227,13 @@ def main() -> int:
         jaw_servo = jaw_module.build_jaw()
         print(f"   Jaw servo: GPIO {jaw_servo.pin}")
 
+    import ambience as ambience_module
+    ambient = ambience_module.build_ambience()
+    if ambient.available():
+        print(f"   Ambience: {os.path.basename(ambient.path)}")
+    elif ambient.error:
+        print(f"   (ambience off: {ambient.error})")
+
     try:
         tts_backend = tts.select_tts_backend(
             config.VOICE, override=config.TTS_BACKEND, output_device=config.AUDIO_OUTPUT
@@ -243,6 +251,7 @@ def main() -> int:
             on_quit,
             process_utterance=handle_utterance,
             speak=speak,
+            ambience=ambient,
             motion_config={
                 "barker_lines": config.BARKER_LINES,
                 "sensor_pin": config.MOTION_PIN,
