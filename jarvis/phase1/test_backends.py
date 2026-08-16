@@ -572,6 +572,47 @@ class TestBarkerGeneration(unittest.TestCase):
             self.assertEqual(jarvis.build_barkers(), config.BARKER_LINES)
 
 
+class TestEyes(unittest.TestCase):
+    """Eyes are decoration — they must never break speech."""
+
+    def test_disabled_is_noop(self):
+        import eyes
+        e = eyes.Eyes(enabled=False)
+        e.idle(); e.alert(); e.start_talking(); e.stop_talking(); e.close()
+        self.assertIsNone(e._led)
+
+    def test_missing_hardware_degrades_quietly(self):
+        import eyes
+        e = eyes.Eyes(enabled=True)      # no gpiozero/LEDs in CI
+        e.idle(); e.alert(); e.start_talking(); e.stop_talking(); e.close()
+        self.assertIsNotNone(e.error)
+
+    def test_levels_clamped_to_pwm_range(self):
+        import eyes
+        e = eyes.Eyes(idle_level=-5, alert_level=0.5, talk_level=99)
+        self.assertEqual(e.idle_level, 0.0)
+        self.assertEqual(e.talk_level, 1.0)
+
+    def test_set_clamps_out_of_range(self):
+        import eyes
+        applied = []
+
+        class FakeLED:
+            def __setattr__(self, k, v): applied.append(v)
+            def off(self): pass
+            def close(self): pass
+
+        e = eyes.Eyes(enabled=True)
+        e._led = FakeLED()
+        e._set(5); e._set(-2)
+        self.assertEqual(applied, [1.0, 0.0])
+
+    def test_stop_talking_is_idempotent(self):
+        import eyes
+        e = eyes.Eyes(enabled=True)
+        e.stop_talking(); e.stop_talking()
+
+
 class TestPersonas(unittest.TestCase):
     """Every persona must supply a prompt + spoken greeting/farewell."""
 

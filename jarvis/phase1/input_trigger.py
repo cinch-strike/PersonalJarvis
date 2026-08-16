@@ -454,6 +454,7 @@ class MotionTrigger(AudioCaptureTrigger):
         process_utterance: Optional[Callable[[List], None]] = None,
         speak: Optional[Callable[[str], None]] = None,
         ambience: Optional[object] = None,
+        eyes: Optional[object] = None,
         barker_lines: Optional[List[str]] = None,
         sensor_pin: int = 17,
         cooldown_s: float = 20.0,
@@ -482,6 +483,7 @@ class MotionTrigger(AudioCaptureTrigger):
         )
         self.speak = speak
         self.ambience = ambience
+        self.eyes = eyes
         self.barker_lines = list(barker_lines or [])
         self.sensor_pin = sensor_pin
         self.cooldown_s = cooldown_s
@@ -554,6 +556,10 @@ class MotionTrigger(AudioCaptureTrigger):
                     # otherwise bleed into the mic and wreck transcription.
                     if self.ambience is not None:
                         self.ambience.stop()
+                    # Eyes brighten the moment it notices you — the change is
+                    # what reads as "it saw me", more than the brightness itself.
+                    if self.eyes is not None:
+                        self.eyes.alert()
                     print("  👻 Someone's there!")
                     stream.start()
 
@@ -571,6 +577,8 @@ class MotionTrigger(AudioCaptureTrigger):
                         self._process_and_drain(stream, captured)
 
                     print(f"  😴 Cooling down {self.cooldown_s:.0f}s...\n")
+                    if self.eyes is not None:
+                        self.eyes.idle()     # dim back down as they walk away
                     resume_at = max(0.0, min(self.ambience_resume_s, self.cooldown_s))
                     time.sleep(resume_at)
                     if self.ambience is not None:
@@ -605,6 +613,7 @@ def select_input_trigger(
     process_utterance: Optional[Callable[[List], None]] = None,
     speak: Optional[Callable[[str], None]] = None,
     ambience: Optional[object] = None,
+    eyes: Optional[object] = None,
     wake_config: Optional[dict] = None,
     motion_config: Optional[dict] = None,
 ) -> InputTrigger:
@@ -636,6 +645,7 @@ def select_input_trigger(
             process_utterance=process_utterance,
             speak=speak,
             ambience=ambience,
+            eyes=eyes,
             **(motion_config or {}),
         )
     return cls(on_record_start, on_record_stop, on_quit)

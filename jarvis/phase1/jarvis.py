@@ -43,6 +43,7 @@ llm_backend = None
 tts_backend = None
 tool_registry = None
 jaw_servo = None        # servo jaw; None unless JARVIS_JAW_ENABLED
+led_eyes = None         # LED eyes; None unless JARVIS_EYES_ENABLED
 
 
 def build_system_prompt() -> str:
@@ -70,11 +71,15 @@ def speak(text: str) -> None:
     print(f"\n  Jarvis: {spoken}\n")
     if jaw_servo is not None:
         jaw_servo.start_talking()
+    if led_eyes is not None:
+        led_eyes.start_talking()
     try:
         tts_backend.speak(spoken)
     finally:
         if jaw_servo is not None:
             jaw_servo.stop_talking()
+        if led_eyes is not None:
+            led_eyes.stop_talking()
 
 
 def transcribe(recorded_frames: list) -> str:
@@ -240,7 +245,7 @@ def check() -> int:
 
 def main() -> int:
     global whisper_model, llm_backend, tts_backend, session_id, system_prompt
-    global tool_registry, jaw_servo
+    global tool_registry, jaw_servo, led_eyes
 
     print("\n⚡ Jarvis Phase 1 starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
@@ -275,6 +280,12 @@ def main() -> int:
         jaw_servo = jaw_module.build_jaw()
         print(f"   Jaw servo: GPIO {jaw_servo.pin}")
 
+    if config.EYES_ENABLED:
+        import eyes as eyes_module
+        led_eyes = eyes_module.build_eyes()
+        led_eyes.idle()
+        print(f"   LED eyes: GPIO {led_eyes.pin}")
+
     barkers = config.BARKER_LINES
     if config.INPUT_MODE.strip().lower() == "motion":
         barkers = build_barkers()
@@ -305,6 +316,7 @@ def main() -> int:
             process_utterance=handle_utterance,
             speak=speak,
             ambience=ambient,
+            eyes=led_eyes,
             motion_config={
                 "barker_lines": barkers,
                 "sensor_pin": config.MOTION_PIN,
@@ -377,6 +389,8 @@ def main() -> int:
         print("   Exiting so the service restarts with a clean audio device.")
         if jaw_servo is not None:
             jaw_servo.close()
+        if led_eyes is not None:
+            led_eyes.close()
         try:
             memory.close_session(session_id)
         except Exception:
@@ -390,6 +404,8 @@ def main() -> int:
     print("\n   Shutting down...")
     if jaw_servo is not None:
         jaw_servo.close()
+    if led_eyes is not None:
+        led_eyes.close()
 
     try:
         memory.close_session(session_id)
@@ -410,6 +426,9 @@ if __name__ == "__main__":
     if "--test-jaw" in args:
         import jaw
         sys.exit(jaw.self_test())
+    if "--test-eyes" in args:
+        import eyes
+        sys.exit(eyes.self_test())
     if "--doctor" in args:
         import doctor
         sys.exit(doctor.run())

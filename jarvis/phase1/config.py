@@ -125,6 +125,17 @@ SERVO_MAX_ANGLE = float(os.environ.get("JARVIS_SERVO_MAX_ANGLE", "45"))
 JAW_RATE_HZ = float(os.environ.get("JARVIS_JAW_RATE_HZ", "6"))
 
 
+# LED eyes (consumed by eyes.py). Off unless enabled, so a rig with no LEDs
+# behaves exactly as before. Levels are 0-1 PWM duty.
+EYES_ENABLED = os.environ.get("JARVIS_EYES_ENABLED", "false").lower() in (
+    "1", "true", "yes", "on"
+)
+EYES_PIN = int(os.environ.get("JARVIS_EYES_PIN", "23"))
+EYES_IDLE = float(os.environ.get("JARVIS_EYES_IDLE", "0.15"))    # dim, waiting
+EYES_ALERT = float(os.environ.get("JARVIS_EYES_ALERT", "0.6"))   # someone's here
+EYES_TALK = float(os.environ.get("JARVIS_EYES_TALK", "1.0"))     # peak while speaking
+
+
 # Wake-word (consumed by input_trigger.WakeWordTrigger) + audio capture.
 # Engine: "auto" → Porcupine if a key is set, else keyless openWakeWord.
 WAKE_ENGINE = os.environ.get("JARVIS_WAKE_ENGINE", "auto")
