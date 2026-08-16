@@ -155,7 +155,46 @@ alone gives "menacing but human", which is scarier. TTS laughs ("ha ha ha") were
 also tried and sound comical — skip them; a recorded laugh WAV would be the way
 if ever wanted.
 
-### Servo jaw — planned wiring (not yet fitted)
+### Servo jaw — WIRED AND WORKING ✅
+
+Runs from its **own 5V supply**, not the Pi — a stalled jaw pulls ~700mA and
+would otherwise risk browning out the Pi (which means SD corruption, not just a
+twitchy jaw).
+
+```
+   5V adaptor ──→ PA3713 (DC socket + screw terminals)
+                     │
+      + screw ───────┴──→ breadboard RED rail ──┬── servo red
+      − screw ────────────→ breadboard BLUE rail ┼── servo brown
+                                                 ├── capacitor (470µF, long leg
+                                                 │   red / striped leg blue)
+                                                 └── black wire ──→ Pi pin 14 (GND)
+
+   servo orange ─────────────────────────────────────→ Pi pin 12 (GPIO18)
+```
+
+⚠️ **Nothing from the red rail touches a Pi pin** — the Pi supplies only the
+signal (pin 12) and the shared ground (pin 14).
+
+⚠️ **The ground link is mandatory.** With a separate supply it matters *more*,
+not less: the servo reads position from pulse timing measured against ground,
+so without a shared reference it twitches randomly or ignores the Pi entirely.
+
+**Use male-to-male jumpers** (Jaycar `WC6024`) — the first attempt used
+hand-stripped stranded wire pushed into the rails, which was flimsy and
+vibration-sensitive. A solid pin also clamps far better in the screw terminals
+than stranded wire.
+
+`JARVIS_JAW_ENABLED=true` and `JARVIS_SERVO_PIN=18` live in `jarvis.env`, so the
+jaw works on boot without manual exports.
+
+### LED eyes — reserved, not yet fitted
+
+GPIO 23 (pin 16) → 330Ω → LED long leg; LED short leg → blue `−` rail. Both eyes
+share one GPIO (two red LEDs ≈ 8mA, under the ~16mA per-pin limit).
+⚠️ Resistors are **not optional** — an LED straight off a GPIO can destroy both.
+
+### Original servo wiring plan (superseded by the above)
 
 Code is written and pushed (`jaw.py`, `jarvis.py --test-jaw`), disabled until
 `JARVIS_JAW_ENABLED=true`. Waiting on male-to-female jumpers (Jaycar `WC6028`).
