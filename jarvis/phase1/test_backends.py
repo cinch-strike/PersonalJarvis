@@ -529,7 +529,7 @@ class TestBarkerGeneration(unittest.TestCase):
     """Generated barkers must never stop the prop starting."""
 
     def _run(self, reply=None, boom=False):
-        import jarvis
+        import barkers
 
         class FakeLLM:
             def generate(self, **kw):
@@ -537,12 +537,7 @@ class TestBarkerGeneration(unittest.TestCase):
                     raise RuntimeError("network down")
                 return reply
 
-        original = jarvis.llm_backend
-        jarvis.llm_backend = FakeLLM()
-        try:
-            return jarvis.build_barkers()
-        finally:
-            jarvis.llm_backend = original
+        return barkers.build(FakeLLM())
 
     def test_parses_plain_lines(self):
         out = self._run("One line here.\nTwo line here.\nThree.\nFour.\nFive.")
@@ -567,9 +562,15 @@ class TestBarkerGeneration(unittest.TestCase):
         self.assertEqual(self._run("Only one."), config.BARKER_LINES)
 
     def test_disabled_uses_configured_lines(self):
-        import config, jarvis
+        import barkers, config
         with mock.patch.object(config, "BARKER_GENERATE", False):
-            self.assertEqual(jarvis.build_barkers(), config.BARKER_LINES)
+            self.assertEqual(barkers.build(None), config.BARKER_LINES)
+
+    def test_no_heavy_imports(self):
+        """CI installs no audio/ML stack — barkers must stay light."""
+        import barkers
+        self.assertFalse(hasattr(barkers, "np"))
+        self.assertFalse(hasattr(barkers, "sd"))
 
 
 class TestEyes(unittest.TestCase):
