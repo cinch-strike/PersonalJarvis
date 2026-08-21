@@ -186,6 +186,42 @@ BARKER_GENERATE = os.environ.get("JARVIS_BARKER_GENERATE", "true").lower() in (
 )
 BARKER_COUNT = int(os.environ.get("JARVIS_BARKER_COUNT", "20"))
 
+
+# Toilet-flush detection (consumed by flush.py). Off by default: it only makes
+# sense for a bathroom install, and the thresholds MUST be tuned in the real
+# room — a tiled bathroom is acoustically brutal. Use `--test-flush` to measure.
+FLUSH_ENABLED = os.environ.get("JARVIS_FLUSH_ENABLED", "false").lower() in (
+    "1", "true", "yes", "on"
+)
+FLUSH_MIN_S = float(os.environ.get("JARVIS_FLUSH_MIN_S", "2.5"))
+FLUSH_RMS = float(os.environ.get("JARVIS_FLUSH_RMS", "600"))
+# Spectral flatness: ~0 for a harmonic voice, toward 1 for broadband water
+# noise. This is the check that actually separates a flush from a shout.
+FLUSH_FLATNESS = float(os.environ.get("JARVIS_FLUSH_FLATNESS", "0.15"))
+FLUSH_SUSTAINED = float(os.environ.get("JARVIS_FLUSH_SUSTAINED", "0.8"))
+
+_DEFAULT_FLUSH_LINES = [
+    "Ahh, the sound of a job well done. I salute you.",
+    "Was that entirely necessary? I have to listen to that all night.",
+    "Another soul lighter. Congratulations.",
+    "I have haunted this house for centuries, and THAT is the worst thing I've heard.",
+]
+
+FLUSH_LINES = [
+    line.strip()
+    for line in os.environ.get(
+        "JARVIS_FLUSH_LINES", " | ".join(_DEFAULT_FLUSH_LINES)
+    ).split("|")
+    if line.strip()
+]
+
+# Generate flush comebacks at startup — same trade as the barkers: one API call
+# at boot, no latency at the moment of the joke, and it still works offline.
+FLUSH_GENERATE = os.environ.get("JARVIS_FLUSH_GENERATE", "true").lower() in (
+    "1", "true", "yes", "on"
+)
+FLUSH_COUNT = int(os.environ.get("JARVIS_FLUSH_COUNT", "12"))
+
 # Each persona carries its own prompt plus the lines spoken on startup and
 # shutdown, so switching JARVIS_PERSONA changes the whole character — not just
 # the replies.

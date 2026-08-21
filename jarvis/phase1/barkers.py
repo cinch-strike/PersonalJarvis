@@ -21,6 +21,16 @@ PROMPT = (
     "with no numbering, quotes, stage directions or commentary."
 )
 
+FLUSH_PROMPT = (
+    "You are mounted in a bathroom at a Halloween party and a guest has just "
+    "flushed the toilet. Write {count} different one-line reactions, in "
+    "character. Rude enough to be funny, clean enough for someone's parents to "
+    "hear — cheeky, not crude. Vary them: some mock-offended, some approving, "
+    "some ominous. Each must be ONE short sentence that works spoken aloud. "
+    "Output ONLY the lines, one per line, with no numbering, quotes, stage "
+    "directions or commentary."
+)
+
 MIN_USABLE = 4      # below this the LLM clearly misunderstood; use defaults
 MAX_LINE_LEN = 160  # anything longer doesn't work shouted across a driveway
 
@@ -39,27 +49,48 @@ def parse(reply: str) -> list:
     return lines
 
 
-def build(llm_backend) -> list:
-    """Fresh call-out lines for this run, written by the LLM in character.
+def _generate(llm_backend, prompt: str, fallback: list, label: str) -> list:
+    """Ask the LLM for a batch of in-character lines, or fall back quietly.
 
-    Falls back to the configured lines on any failure — the prop must still
-    start with no network.
+    Shared by every line type: the prop must still start with no network, so
+    every failure path returns the configured defaults rather than raising.
     """
-    if not config.BARKER_GENERATE:
-        return config.BARKER_LINES
     try:
         reply = llm_backend.generate(
             system=config.SYSTEM_PROMPT,
-            messages=[{"role": "user",
-                       "content": PROMPT.format(count=config.BARKER_COUNT)}],
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=900,
         )
     except Exception as e:  # noqa: BLE001 — never block startup on this
-        print(f"   (barker generation failed: {e}; using default lines)")
-        return config.BARKER_LINES
+        print(f"   ({label} generation failed: {e}; using default lines)")
+        return fallback
 
     lines = parse(reply)
     if len(lines) < MIN_USABLE:
-        print("   (barker generation gave too few usable lines; using defaults)")
-        return config.BARKER_LINES
+        print(f"   ({label} generation gave too few usable lines; using defaults)")
+        return fallback
     return lines
+
+
+def build(llm_backend) -> list:
+    """Fresh call-out lines for this run, written by the LLM in character."""
+    if not config.BARKER_GENERATE:
+        return config.BARKER_LINES
+    return _generate(
+        llm_backend,
+        PROMPT.format(count=config.BARKER_COUNT),
+        config.BARKER_LINES,
+        "barker",
+    )
+
+
+def build_flush_lines(llm_backend) -> list:
+    """Comebacks for when the toilet flushes."""
+    if not config.FLUSH_GENERATE:
+        return config.FLUSH_LINES
+    return _generate(
+        llm_backend,
+        FLUSH_PROMPT.format(count=config.FLUSH_COUNT),
+        config.FLUSH_LINES,
+        "flush line",
+    )

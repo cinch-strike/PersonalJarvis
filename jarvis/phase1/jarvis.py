@@ -10,6 +10,7 @@ the OS / env (see config.py). Phase 1 on a Mac behaves exactly as before.
   python jarvis.py            run normally
   python jarvis.py --check    print selected backends without opening the mic
   python jarvis.py --doctor   full environment readiness probe (no mic/model)
+  python jarvis.py --test-flush  measure a recording to tune flush detection
 
 Requirements: see requirements-*.txt
 Setup: see SETUP.md
@@ -17,6 +18,7 @@ Setup: see SETUP.md
 
 import os
 import platform
+import random
 import sys
 
 import numpy as np
@@ -45,6 +47,9 @@ tts_backend = None
 tool_registry = None
 jaw_servo = None        # servo jaw; None unless JARVIS_JAW_ENABLED
 led_eyes = None         # LED eyes; None unless JARVIS_EYES_ENABLED
+flush_detector = None   # toilet-flush classifier; inert unless JARVIS_FLUSH_ENABLED
+flush_lines = []        # comebacks, generated at startup
+_last_flush_line = None # so the same gag doesn't land twice running
 
 
 def build_system_prompt() -> str:
@@ -107,12 +112,27 @@ def ask_llm(user_text: str) -> str:
     return reply
 
 
+def next_flush_line() -> str:
+    """Rotate through the flush comebacks, avoiding an immediate repeat."""
+    global _last_flush_line
+    choices = [l for l in flush_lines if l != _last_flush_line] or flush_lines
+    _last_flush_line = random.choice(choices)
+    return _last_flush_line
+
+
 def handle_utterance(captured: list) -> None:
     """Transcribe a captured recording, get a reply, and speak it.
 
     Used directly by audio-managing triggers (wake_word), and by push_to_talk
     via process() below.
     """
+    # A flush is loud enough that the VAD captures it like speech, and Whisper
+    # hallucinates on non-speech audio — so classify before transcribing.
+    if flush_detector.matches(captured, config.SAMPLE_RATE):
+        print("  🚽 (flush detected)")
+        speak(next_flush_line())
+        return
+
     text = transcribe(captured)
     if not text:
         print("  (nothing heard — try again)")
@@ -198,7 +218,7 @@ def check() -> int:
 
 def main() -> int:
     global whisper_model, llm_backend, tts_backend, session_id, system_prompt
-    global tool_registry, jaw_servo, led_eyes
+    global tool_registry, jaw_servo, led_eyes, flush_detector, flush_lines
 
     print("\n⚡ Jarvis Phase 1 starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
@@ -243,6 +263,12 @@ def main() -> int:
     if config.INPUT_MODE.strip().lower() == "motion":
         barkers = barkers_module.build(llm_backend)
         print(f"   Barker lines: {len(barkers)}")
+
+    import flush as flush_module
+    flush_detector = flush_module.build_detector()
+    if config.FLUSH_ENABLED:
+        flush_lines = barkers_module.build_flush_lines(llm_backend)
+        print(f"   Flush detection: on ({len(flush_lines)} comebacks)")
 
     import ambience as ambience_module
     ambient = ambience_module.build_ambience()
@@ -382,6 +408,9 @@ if __name__ == "__main__":
     if "--test-eyes" in args:
         import eyes
         sys.exit(eyes.self_test())
+    if "--test-flush" in args:
+        import flush
+        sys.exit(flush.self_test())
     if "--doctor" in args:
         import doctor
         sys.exit(doctor.run())

@@ -573,6 +573,97 @@ class TestBarkerGeneration(unittest.TestCase):
         self.assertFalse(hasattr(barkers, "sd"))
 
 
+class TestFlushDetection(unittest.TestCase):
+    """A flush must be told apart from a voice — and never eat a question."""
+
+    RATE = 16000
+
+    def _noise(self, seconds=6.0, amplitude=3000):
+        """Broadband noise ≈ rushing water."""
+        import numpy as np
+        rng = np.random.default_rng(0)
+        n = int(self.RATE * seconds)
+        return (rng.normal(0, amplitude, n)).astype("int16").reshape(-1, 1)
+
+    def _voice(self, seconds=6.0, amplitude=3000):
+        """Harmonic tone with gaps between 'words' ≈ speech."""
+        import numpy as np
+        n = int(self.RATE * seconds)
+        t = np.arange(n) / self.RATE
+        # 150Hz fundamental + harmonics: energy in peaks, not spread out.
+        wave = sum(np.sin(2 * np.pi * 150 * k * t) / k for k in (1, 2, 3, 4))
+        wave *= amplitude / 2
+        # Silence every other 300ms — the gaps a real speaker leaves.
+        gate = ((t * 1000 // 300) % 2 == 0).astype(float)
+        return (wave * gate).astype("int16").reshape(-1, 1)
+
+    def _detector(self, **kw):
+        import flush
+        kw.setdefault("enabled", True)
+        return flush.FlushDetector(**kw)
+
+    def test_noise_reads_as_flush(self):
+        self.assertTrue(self._detector().matches(self._noise(), self.RATE))
+
+    def test_speech_does_not_read_as_flush(self):
+        self.assertFalse(self._detector().matches(self._voice(), self.RATE))
+
+    def test_flatness_separates_them(self):
+        """The discriminator the whole design leans on."""
+        d = self._detector()
+        noise = d.measure(self._noise(), self.RATE).flatness
+        voice = d.measure(self._voice(), self.RATE).flatness
+        self.assertGreater(noise, voice * 2)
+
+    def test_short_burst_is_not_a_flush(self):
+        """A door slam is broadband too — duration is what rules it out."""
+        self.assertFalse(
+            self._detector().matches(self._noise(seconds=0.4), self.RATE))
+
+    def test_quiet_noise_is_not_a_flush(self):
+        self.assertFalse(
+            self._detector().matches(self._noise(amplitude=50), self.RATE))
+
+    def test_disabled_never_matches(self):
+        self.assertFalse(
+            self._detector(enabled=False).matches(self._noise(), self.RATE))
+
+    def test_empty_and_none_are_safe(self):
+        d = self._detector()
+        self.assertFalse(d.matches([], self.RATE))
+        self.assertFalse(d.matches(None, self.RATE))
+
+    def test_broken_input_falls_through_to_transcription(self):
+        """Any failure must return False so the question still gets heard."""
+        self.assertFalse(self._detector().matches(["not audio"], self.RATE))
+
+    def test_explain_reports_every_check(self):
+        out = self._detector().explain(self._noise(), self.RATE)
+        for field in ("duration", "rms", "flatness", "sustained"):
+            self.assertIn(field, out)
+
+
+class TestFlushLines(unittest.TestCase):
+
+    def test_generation_falls_back_on_failure(self):
+        import barkers, config
+
+        class Boom:
+            def generate(self, **kw):
+                raise RuntimeError("no network")
+
+        self.assertEqual(barkers.build_flush_lines(Boom()), config.FLUSH_LINES)
+
+    def test_disabled_uses_configured_lines(self):
+        import barkers, config
+        with mock.patch.object(config, "FLUSH_GENERATE", False):
+            self.assertEqual(barkers.build_flush_lines(None), config.FLUSH_LINES)
+
+    def test_defaults_exist_for_offline_use(self):
+        import config
+        self.assertGreaterEqual(len(config.FLUSH_LINES), 4)
+
+
 class TestEyes(unittest.TestCase):
     """Eyes are decoration — they must never break speech."""
 
