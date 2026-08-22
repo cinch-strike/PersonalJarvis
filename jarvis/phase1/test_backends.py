@@ -586,6 +586,18 @@ class TestJogControls(unittest.TestCase):
         self.assertEqual(self._keys("\x1b[C"), "right")
         self.assertEqual(self._keys("\x1b[D"), "left")
 
+    def test_application_cursor_mode_arrows(self):
+        """Some terminals send ESC O A instead of ESC [ A over SSH."""
+        self.assertEqual(self._keys("\x1bOA"), "up")
+        self.assertEqual(self._keys("\x1bOB"), "down")
+
+    def test_letter_fallbacks(self):
+        """A terminal that mangles escapes must not block calibration."""
+        self.assertEqual(self._keys("w"), "up")
+        self.assertEqual(self._keys("s"), "down")
+        self.assertEqual(self._keys("k"), "up")
+        self.assertEqual(self._keys("j"), "down")
+
     def test_plain_keys_pass_through(self):
         self.assertEqual(self._keys("m"), "m")
         self.assertEqual(self._keys("q"), "q")

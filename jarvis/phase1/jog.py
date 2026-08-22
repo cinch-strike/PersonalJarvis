@@ -26,7 +26,21 @@ from __future__ import annotations
 import select
 import sys
 
-_ARROWS = {"[A": "up", "[B": "down", "[C": "right", "[D": "left"}
+# Terminals send arrows in one of two forms depending on whether they're in
+# "application cursor key" mode: ESC [ A (normal) or ESC O A (application).
+# Both are common over SSH, so accept either.
+_ARROWS = {
+    "[A": "up", "[B": "down", "[C": "right", "[D": "left",
+    "OA": "up", "OB": "down", "OC": "right", "OD": "left",
+}
+
+# Letter fallbacks, so a terminal that mangles escape sequences can't block a
+# calibration session. w/s and k/j (vim) both move fine.
+_LETTERS = {
+    "w": "up", "s": "down", "k": "up", "j": "down",
+    "d": "right", "a": "left", "l": "right", "h": "left",
+    "+": "up", "-": "down",
+}
 
 
 def read_key(stream=None, timeout: float = 0.25) -> str:
@@ -38,7 +52,7 @@ def read_key(stream=None, timeout: float = 0.25) -> str:
     stream = stream or sys.stdin
     ch = stream.read(1)
     if ch != "\x1b":
-        return ch
+        return _LETTERS.get(ch, ch)
     try:
         ready, _, _ = select.select([stream], [], [], timeout)
         if not ready:
@@ -131,6 +145,13 @@ def run(step: float = 1.0, coarse: float = 5.0) -> int:
                 sys.stdout.write("\r   (released — next move re-attaches)"
                                  + " " * 20 + "\n")
             else:
+                # Say so rather than ignoring it — a key that silently does
+                # nothing reads as a dead servo.
+                shown = repr(key).strip("'")
+                sys.stdout.write(f"\r   (unrecognised key: {shown} — use w/s "
+                                 f"if arrows don't work)" + " " * 10 + "\n")
+                sys.stdout.write(_render(angle, False, marks))
+                sys.stdout.flush()
                 continue
 
             sys.stdout.write(_render(angle, limited, marks))
