@@ -155,6 +155,68 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 
 ## What's Next (immediate)
 
+### Current state: the prop works end to end ✅
+
+Motion → eyes brighten → barker line → conversation → jaw + eyes in sync → back
+to idle. Boots on power-up with nothing typed. Confirmed working, including
+speech recognition. **The software side is done**; what remains is physical.
+
+Settings as tuned live in `phase1/jarvis.env.example` (the live copy on the Pi
+holds secrets and is not in git). Build details and the calibration lessons are
+in `HALLOWEEN.md`.
+
+### Next session — three physical jobs
+
+**1. Extend the LEDs and mount them in the eye sockets**
+
+The servo is properly mounted with its cable routed down; the LEDs need the same
+treatment. Currently they sit directly in the breadboard.
+
+- ⚠️ **Mark polarity before extending.** Once the legs are in a connector, the
+  long-leg cue is gone and the flat spot is hidden inside the skull.
+- No-solder method: **female-to-female jumper wires** — LED legs push straight
+  into the female end.
+- **Keep the 470Ω resistors at the breadboard end**, so the eye assembly is just
+  two wires and a bulb, and resistor values can change without reaching inside.
+- Test the extended assembly *before* it goes in the socket.
+
+**2. Print the casing and mount**
+
+Must be firm enough that the skull doesn't move as the servo works. The servo
+pushes back on the skull exactly as hard as it pulls the jaw, so a loose mount
+means the skull rocks instead of the jaw closing — and there is only ~1° of jaw
+travel to lose. Mass in the base plus bolting (not resting) the skull to the
+housing.
+
+**3. Removable top half — no glue**
+
+Top stays off for now for servo access. For the final version: **alignment pins
++ magnets**, not magnets alone. Pins take the shear and locate it repeatably;
+magnets provide clamping. ⚠️ Check magnet polarity *before* gluing them in — an
+embedded magnet the wrong way round pushes the top half off and can't be removed.
+
+Heat-set inserts and screws are the rigid alternative, but slower to open.
+
+### Also pending
+
+- **3D printing instructions** being migrated onto this machine (previously done
+  via Cowork on another machine) — fold the servo measurements, leverage
+  findings and mount requirements into one brief once they land.
+- **Re-run `--jog-jaw`** if finalising the mount shifts the geometry; the 4°/5°
+  figures assume the current linkage.
+- **Tune flush detection** with `--test-flush` once the skull is in the bathroom
+  (built, defaults off — see `HALLOWEEN.md`).
+- **Re-test speech recognition in the bathroom.** Tiled rooms are the hard case;
+  `JARVIS_VAD_SILENCE_MS` is the knob, currently tuned for a normal room.
+- Optional: **SD card image backup** before Halloween.
+
+---
+
+### Historical — wake-word bring-up (superseded by motion mode)
+
+> Kept for reference. The prop now runs `JARVIS_INPUT_MODE=motion`; wake word
+> remains supported but is not what's deployed.
+
 **First talking Jarvis on the Pi — wake-word run (keyless openWakeWord):**
 > Porcupine's free key now requires Picovoice *commercial-use approval* (Donnie hit this gate), so the default engine is **openWakeWord** — no account, no key, offline.
 ```bash
@@ -236,4 +298,4 @@ source ~/.bashrc
 
 ---
 
-*Last updated: 22 June 2026 — Phase 2 software portability complete (TTS/input/LLM abstractions, `--doctor`, tests, CI); Pi base built 8/9, audio blocked on USB data cable.*
+*Last updated: 22 August 2026 — Halloween skull working end to end: motion trigger, ElevenLabs voice, MG90S jaw (calibrated via `--jog-jaw`), LED eyes, ambience, boots on power-up. Toilet-flush banter built but off pending on-site tuning. Remaining work is physical: LED extension, casing/mount, removable top half.*
