@@ -287,6 +287,72 @@ level shifter, no divider.
 - PIR senses *movement*, not presence — someone standing perfectly still can drop
   out. Fine for a party; swap to LD2410 (no code change) if it bothers you.
 
+## LED eyes
+
+| | Pi 5 pin |
+|---|---|
+| GPIO 23 | pin 16 |
+| GND | blue `−` rail (common with the Pi and the servo supply) |
+
+Each LED gets **its own 470Ω resistor** (`yellow-violet-brown-gold`) between
+GPIO 23 and its anode; cathodes go to the `−` rail. Two LEDs on one shared
+resistor would not split current evenly — small differences between them mean
+one hogs the current, runs brighter, and dims the other.
+
+Both eyes share one GPIO. They'd always match anyway, and two red LEDs at ~4mA
+each stay well under the Pi's ~16mA per-pin limit.
+
+Three states, because the *change* is what reads as "it noticed you" far more
+than raw brightness: dim while waiting, brighter the instant the PIR fires,
+pulsing while speaking. Test with `python jarvis.py --test-eyes`.
+
+## Calibrating the jaw
+
+Use `python jarvis.py --jog-jaw` — arrow keys (or `w`/`s`) move the servo a
+degree at a time, `m` marks a position, and it prints a suggested config on
+exit. Measure against the *mounted* linkage; the numbers are meaningless
+otherwise.
+
+The servo stops driving a second after each move. This matters: a servo told to
+**hold** a position hunts around its deadband, and a mounted jaw amplifies that
+sub-degree jitter into obvious chatter that is easily mistaken for a linkage or
+power fault. Between moves it should be silent.
+
+### The leverage trap
+
+```
+jaw rotation = servo rotation × (horn radius ÷ distance from jaw hinge to cable)
+```
+
+On this build the whole jaw travel happens in **1° of servo rotation** — the
+ratio is far too high. Consequences worth knowing:
+
+- The flap's built-in variation (55–100% of span) falls below the servo's
+  deadband, so the jaw reads as **binary open/closed** rather than varied.
+- Servo dither becomes a large fraction of travel. Early on this looked like a
+  loose mount or a failing supply; it was neither.
+- There's no room to stop fractionally short of contact, so the teeth clack.
+  (Which turned out to sound good — a clacking skull is on-theme.)
+
+To improve it, get **more servo rotation per unit of jaw movement**: move the
+cable *further from the jaw hinge*, or *closer to the horn's centre*. Aim for
+15–30° of travel between open and closed.
+
+⚠️ A **longer horn makes it worse**, not better — more cable pull per degree
+means fewer degrees used. The instinct to fix this with a bigger horn is
+backwards.
+
+### MG90S vs SG90
+
+Drop-in electrically (**brown = GND, red = 5V, orange = signal**) and the same
+28mm screw spacing, but slightly taller and ~50% heavier. The measurements in
+SERVO_MEASUREMENTS.md are from the SG90 — dry-fit before screwing anything down.
+
+⚠️ Metal gears do **not** strip. The plastic SG90's gears were acting as a
+mechanical fuse; with an MG90S, whatever gives will be your linkage or the
+printed jaw instead. Bring travel limits up gradually and stop at the first
+resistance.
+
 ## Running it
 
 ```bash
