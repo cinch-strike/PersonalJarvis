@@ -602,6 +602,16 @@ class TestJogControls(unittest.TestCase):
         self.assertEqual(self._keys("m"), "m")
         self.assertEqual(self._keys("q"), "q")
 
+    def test_hold_key_is_not_a_movement_key(self):
+        """'h' toggles hold — it must not also jog the servo."""
+        import jog
+        self.assertEqual(self._keys("h"), "h")
+        self.assertNotIn("h", jog._LETTERS)
+
+    def test_input_ready_degrades_without_fileno(self):
+        import io, jog
+        self.assertTrue(jog.input_ready(0, io.StringIO("w")))
+
     def test_clamps_to_servo_range(self):
         import jog
         self.assertEqual(jog.clamp(99, -45, 45), (45, True))
