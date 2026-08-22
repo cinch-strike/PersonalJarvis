@@ -11,6 +11,7 @@ the OS / env (see config.py). Phase 1 on a Mac behaves exactly as before.
   python jarvis.py --check    print selected backends without opening the mic
   python jarvis.py --doctor   full environment readiness probe (no mic/model)
   python jarvis.py --test-flush  measure a recording to tune flush detection
+  python jarvis.py --jog-jaw  arrow-key servo calibration (hold + mark)
 
 Requirements: see requirements-*.txt
 Setup: see SETUP.md
@@ -408,6 +409,9 @@ if __name__ == "__main__":
     if "--test-eyes" in args:
         import eyes
         sys.exit(eyes.self_test())
+    if "--jog-jaw" in args:
+        import jog
+        sys.exit(jog.run())
     if "--test-flush" in args:
         import flush
         sys.exit(flush.self_test())

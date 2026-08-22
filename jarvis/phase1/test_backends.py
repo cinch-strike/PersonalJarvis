@@ -573,6 +573,41 @@ class TestBarkerGeneration(unittest.TestCase):
         self.assertFalse(hasattr(barkers, "sd"))
 
 
+class TestJogControls(unittest.TestCase):
+    """Key decoding and clamping — the parts that don't need a servo."""
+
+    def _keys(self, data):
+        import io, jog
+        return jog.read_key(io.StringIO(data), timeout=0)
+
+    def test_arrow_keys_decode(self):
+        self.assertEqual(self._keys("\x1b[A"), "up")
+        self.assertEqual(self._keys("\x1b[B"), "down")
+        self.assertEqual(self._keys("\x1b[C"), "right")
+        self.assertEqual(self._keys("\x1b[D"), "left")
+
+    def test_plain_keys_pass_through(self):
+        self.assertEqual(self._keys("m"), "m")
+        self.assertEqual(self._keys("q"), "q")
+
+    def test_clamps_to_servo_range(self):
+        import jog
+        self.assertEqual(jog.clamp(99, -45, 45), (45, True))
+        self.assertEqual(jog.clamp(-99, -45, 45), (-45, True))
+        self.assertEqual(jog.clamp(10, -45, 45), (10, False))
+
+    def test_limit_is_reported(self):
+        """Silently clamping would look like a dead servo mid-calibration."""
+        import jog
+        _, limited = jog.clamp(46, -45, 45)
+        self.assertTrue(limited)
+
+    def test_non_tty_refuses_rather_than_hangs(self):
+        import jog
+        with mock.patch("sys.stdin.isatty", return_value=False):
+            self.assertEqual(jog.run(), 1)
+
+
 class TestFlushDetection(unittest.TestCase):
     """A flush must be told apart from a voice — and never eat a question."""
 
