@@ -1,5 +1,17 @@
 # Tray v2 — print & assembly notes
 
+> ⚠️ **The mount sections below are SUPERSEDED — see `jarvis/CAD_HANDOVER.md`.**
+>
+> Steps 3–5 of the assembly order describe the **v1 adjustable-height mount**
+> (`mount_anchor.stl` + `mount_rod.stl`). That design has a clamp-bolt flaw: the
+> bolt hole passes through the sleeve's axis but the rod has no matching hole, so
+> it can never actually clamp. **Do not print those two parts.**
+>
+> The current mount is **`mount_fixed_v2.stl`** — one rigid piece, no height
+> adjustment. Print plate-down, socket-up, no supports.
+>
+> The **tray** sections (panels, legs, print settings) are still correct.
+
 ## Files
 - `tray_FL.stl / tray_FR.stl / tray_BL.stl / tray_BR.stl` — the 4 tray quadrants (Front/Back x Left/Right). Each is ~220x225mm, well inside the P2S's 256x256mm bed. Print flat, zero supports.
 - `tray_LEG.stl` — the standoff leg, printed **separately** from the deck now so the panels don't need support underneath. Print **4 of these**.

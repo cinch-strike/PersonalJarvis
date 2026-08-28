@@ -179,11 +179,16 @@ the STLs.
 
 ### Next up
 
-**1. Finish the tray and mount prints**
+**1. Finish the prints — see `CAD_HANDOVER.md` for the full CAD picture**
 
-`cad/tray_v1/` has the parts. Three things are still unconfirmed against a real
-print and are cheap single-part reprints if wrong: leg peg friction (8mm peg into
-a 7.7mm socket), ball-socket friction on the rod/plate, and cable bore positions.
+Tray panels and legs are printed and done. The ball/socket fit is settled
+(1mm *interference* fit — deliberately negative clearance, validated on a test
+coupon). Still to print: **`mount_fixed_v2.stl`** and **`eye_led_mount.stl` ×2**.
+
+⚠️ **Do not print `mount_anchor.stl` or `mount_rod.stl`** — they're the v1
+adjustable mount and it has a clamp-bolt flaw that means it can never actually
+clamp. `README_v2.md` in the CAD folder still describes them; it now carries a
+warning at the top, but be aware the two documents overlap.
 
 **2. Removable top half — no glue**
 
@@ -193,7 +198,14 @@ magnets supply the clamping. ⚠️ Check magnet polarity *before* gluing them i
 one embedded the wrong way round pushes the top half off and can't be retrieved.
 Heat-set inserts and screws are the rigid alternative, but slower to open.
 
-**3. Covers/mounts (rock, bone, tombstone)** — next CAD part, per README_v2.
+**3. Speaker covers — blocked on measurements.** Since the two Pebbles are
+permanently cabled together, the plan is to stack them vertically in a ruined-
+headstone shell rather than re-layout the tray. **Needed to unblock:** speaker
+W×D×H, where the grille face and cable exit sit on each unit, and how much slack
+the tether has.
+
+**4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
+breadboard and powerboard — not started.
 
 ### On-site, once it's in the bathroom
 
