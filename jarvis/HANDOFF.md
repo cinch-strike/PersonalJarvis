@@ -155,59 +155,61 @@ The `jarvis-local` IAM access keys were generated during setup — Donnie has th
 
 ## What's Next (immediate)
 
-### Current state: the prop works end to end ✅
+### Current state: full dry run passed ✅
 
 Motion → eyes brighten → barker line → conversation → jaw + eyes in sync → back
-to idle. Boots on power-up with nothing typed. Confirmed working, including
-speech recognition. **The software side is done**; what remains is physical.
+to idle. Confirmed working end to end **with everything mounted**, including
+speech recognition and the LEDs on extension wires in their eye mounts.
+
+Done so far: LED eyes wired, extended and mounted · MG90S jaw swapped in,
+mounted and calibrated · skeleton mount anchored · full dry run passed.
+
+**The software side is done.** Remaining work is physical + on-site tuning.
 
 Settings as tuned live in `phase1/jarvis.env.example` (the live copy on the Pi
 holds secrets and is not in git). Build details and the calibration lessons are
-in `HALLOWEEN.md`.
+in `HALLOWEEN.md`. CAD lives in `cad/tray_v1/` — edit the `.scad` sources, not
+the STLs.
 
-### Next session — three physical jobs
+> ⚠️ **`jarvis` is currently DISABLED at boot** — turned off during wiring so it
+> wouldn't interrupt. It must be re-enabled before the night:
+> `sudo systemctl enable jarvis`, then verify with `systemctl is-enabled jarvis`.
+> This is the single easiest thing to forget, and the failure mode is a prop that
+> does nothing when powered up.
 
-**1. Extend the LEDs and mount them in the eye sockets**
+### Next up
 
-The servo is properly mounted with its cable routed down; the LEDs need the same
-treatment. Currently they sit directly in the breadboard.
+**1. Finish the tray and mount prints**
 
-- ⚠️ **Mark polarity before extending.** Once the legs are in a connector, the
-  long-leg cue is gone and the flat spot is hidden inside the skull.
-- No-solder method: **female-to-female jumper wires** — LED legs push straight
-  into the female end.
-- **Keep the 470Ω resistors at the breadboard end**, so the eye assembly is just
-  two wires and a bulb, and resistor values can change without reaching inside.
-- Test the extended assembly *before* it goes in the socket.
+`cad/tray_v1/` has the parts. Three things are still unconfirmed against a real
+print and are cheap single-part reprints if wrong: leg peg friction (8mm peg into
+a 7.7mm socket), ball-socket friction on the rod/plate, and cable bore positions.
 
-**2. Print the casing and mount**
+**2. Removable top half — no glue**
 
-Must be firm enough that the skull doesn't move as the servo works. The servo
-pushes back on the skull exactly as hard as it pulls the jaw, so a loose mount
-means the skull rocks instead of the jaw closing — and there is only ~1° of jaw
-travel to lose. Mass in the base plus bolting (not resting) the skull to the
-housing.
-
-**3. Removable top half — no glue**
-
-Top stays off for now for servo access. For the final version: **alignment pins
-+ magnets**, not magnets alone. Pins take the shear and locate it repeatably;
-magnets provide clamping. ⚠️ Check magnet polarity *before* gluing them in — an
-embedded magnet the wrong way round pushes the top half off and can't be removed.
-
+Top is currently off for servo access. For the final version: **alignment pins +
+magnets**, not magnets alone. Pins take the shear and locate it repeatably;
+magnets supply the clamping. ⚠️ Check magnet polarity *before* gluing them in —
+one embedded the wrong way round pushes the top half off and can't be retrieved.
 Heat-set inserts and screws are the rigid alternative, but slower to open.
+
+**3. Covers/mounts (rock, bone, tombstone)** — next CAD part, per README_v2.
+
+### On-site, once it's in the bathroom
+
+- **Tune flush detection** with `--test-flush` (built, defaults off — see
+  `HALLOWEEN.md`). Run it once while flushing, once while talking, set thresholds
+  between the two readings.
+- **Re-test speech recognition.** Tiled rooms are the hard case;
+  `JARVIS_VAD_SILENCE_MS` is the knob, currently tuned for a normal room.
+- **Speakers:** the Pebble V3's inter-speaker cable is **hardwired, 1.35m** — both
+  units must be placed. Audio is mono so both play the same; use the second for
+  volume and hide it. Plan cable routing for that 1.35m.
+- **Re-run `--jog-jaw`** if anything shifts the linkage. There is only ~1° of jaw
+  travel, so a millimetre of movement in the mount can put closed outside it.
 
 ### Also pending
 
-- **3D printing instructions** being migrated onto this machine (previously done
-  via Cowork on another machine) — fold the servo measurements, leverage
-  findings and mount requirements into one brief once they land.
-- **Re-run `--jog-jaw`** if finalising the mount shifts the geometry; the 4°/5°
-  figures assume the current linkage.
-- **Tune flush detection** with `--test-flush` once the skull is in the bathroom
-  (built, defaults off — see `HALLOWEEN.md`).
-- **Re-test speech recognition in the bathroom.** Tiled rooms are the hard case;
-  `JARVIS_VAD_SILENCE_MS` is the knob, currently tuned for a normal room.
 - Optional: **SD card image backup** before Halloween.
 
 ---
@@ -298,4 +300,4 @@ source ~/.bashrc
 
 ---
 
-*Last updated: 22 August 2026 — Halloween skull working end to end: motion trigger, ElevenLabs voice, MG90S jaw (calibrated via `--jog-jaw`), LED eyes, ambience, boots on power-up. Toilet-flush banter built but off pending on-site tuning. Remaining work is physical: LED extension, casing/mount, removable top half.*
+*Last updated: 29 August 2026 — full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*
