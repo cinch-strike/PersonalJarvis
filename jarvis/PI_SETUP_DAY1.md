@@ -4,22 +4,24 @@
 
 **Goal for the day:** get the Raspberry Pi to a *known-good base* — booted, on the network, updated, audio working, code downloaded, dependencies installed, credentials in place. You will **not** have a talking Jarvis today (that needs the wake-word software Claude Code is still building). Today you build the foundation it runs on.
 
-### ▶️ WHEN THE DATA CABLE ARRIVES — finish Step 5 (≈5 min)
-1. Reconnect to the Pi: `ssh jarvis@jarvis.local`
-2. Plug ReSpeaker into the Pi with the **new Vention data cable** (USB-A → Micro-B).
-3. Power the Pebble (USB-C) and run a 3.5mm cable from the **ReSpeaker's green jack** → Pebble aux. *(Pi 5 has no headphone jack — audio in AND out both go through the ReSpeaker, so this all needs the data cable.)*
-4. Confirm the Pi sees it: `lsusb` (look for XMOS/Seeed) then `arecord -l`.
-5. Record + play back:
-   ```bash
-   arecord -d 5 -f cd test.wav    # talk for 5s
-   aplay test.wav                 # should hear it through the Pebble
-   ```
-6. If you hear your voice → Day 1 fully done. Note the mic card name (`arecord -l`) + output (`aplay -l`) and bring them to chat for the Phase 2 config. If `lsusb` *still* shows nothing with the new data cable → it's the ReSpeaker board (warranty/replace).
+### ✅ DAY 1 COMPLETE — audio confirmed working
+Both audio devices verified on the Pi (record + playback, heard own voice):
+- **Mic = ReSpeaker → `card 2` (`plughw:2,0`)** — `lsusb` ID `2886:0018`
+- **Speaker = Pebble V3 → `card 3` (`plughw:3,0`)** — `lsusb` ID `041e:3272`
+
+Working test commands (use the explicit `-D plughw:N,0` targets — the Pi defaults to HDMI otherwise):
+```bash
+arecord -D plughw:2,0 -d 5 -f cd test.wav    # record 5s from ReSpeaker
+aplay   -D plughw:3,0 test.wav               # play back through Pebble
+```
+**Gotchas hit (for future reference):** (1) the ReSpeaker needs a *data* Micro-USB cable — charge-only cables power the LEDs but never enumerate (`lsusb` empty, `dmesg` silent on plug). (2) The Pebble's captive USB-C → USB-A adapter connection was intermittent; reseating got a stable detect. (3) Bare `aplay test.wav` fails with "error 524" because it targets HDMI — always pass `-D plughw:3,0`.
+
+**Next: Phase 2** — wake word + Linux TTS (Claude Code building), then make Jarvis auto-start. The card numbers above go into the Phase 2 audio config.
 
 ---
 
-### Progress — 8 of 9 done 🟩🟩🟩🟩🟩🟨🟩🟩🟩
-✅ 0 Lay out · ✅ 1 Cooler · ✅ 2 Flash SD · ✅ 3 Boot+SSH · ✅ 4 Update · 🟨 5 Audio (BLOCKED — cable ordered) · ✅ 6 Deps · ✅ 7 Code · ✅ 8 Credentials
+### Progress — 9 of 9 done 🟩🟩🟩🟩🟩🟩🟩🟩🟩
+✅ 0 Lay out · ✅ 1 Cooler · ✅ 2 Flash SD · ✅ 3 Boot+SSH · ✅ 4 Update · ✅ 5 Audio · ✅ 6 Deps · ✅ 7 Code · ✅ 8 Credentials
 > *Note: Pi runs Python 3.13.5 — faster-whisper 1.2.1 installed and imported fine, so the 3.11 concern is moot. `core ok` confirmed.*
 > *AWS verified by a real `put-item` write to `jarvis-memory` (ListTables/DescribeTable are denied by design — the policy only grants PutItem, which is all Jarvis uses). Cloud memory path works from the Pi. A harmless test row sits at `session_id=0`.*
 
@@ -149,7 +151,8 @@ This downloads the latest fixes. Copy-paste one block at a time, press Enter, wa
 
 ---
 
-## Step 5 — Get audio working (20–30 min — go slow here)
+## Step 5 — Get audio working (20–30 min — go slow here) ✅ DONE
+> **Result:** mic = ReSpeaker `plughw:2,0`, speaker = Pebble V3 `plughw:3,0`. See the "DAY 1 COMPLETE" box at the top for the working commands and gotchas.
 This is the fiddliest part, so take it step by step. The **ReSpeaker** (round microphone board) is plug-and-play — no driver needed. We'll send sound *out* through the **Pebble speaker**.
 📷 *ReSpeaker board photo — find the green 3.5mm jack and USB port:* https://wiki.seeedstudio.com/ReSpeaker_Mic_Array_v2.0/
 
