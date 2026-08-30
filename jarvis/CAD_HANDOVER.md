@@ -1,6 +1,6 @@
 # Halloween Skull Prop — CAD Handover
 
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 **Scope:** 3D-printed physical build (tray, skull mount, eye LED mounts).
 Electronics/software are covered by `HALLOWEEN.md` — this doc is the CAD side only.
 
@@ -20,6 +20,7 @@ printing and testing, not by calculation — treat them as measured facts.
 | Ball/socket fit | **Settled** | Validated on printed coupon "1" |
 | Attachment plate + ball | **Printed, works** | `mount_plate.stl`, unchanged |
 | Eye LED mount | **Final STL, printing** | `eye_led_mount.stl`, ×2 needed |
+| Pi 5 sled | **Briefed, not started** | See `COWORK_BRIEF_pi_sled.md` |
 | Speaker covers | **Not started** | Design discussed, blocked on measurements |
 | Component covers (rock/bone/tombstone) | **Not started** | — |
 
@@ -119,6 +120,34 @@ Design constraints already identified: generous cable channel between tiers
 area on each tier plus foam/tape isolation so the shell doesn't buzz, key the
 tiers with a recess so the stack can't shift, keep it lift-off rather than glued.
 
+**Skull umbilical bore — needs drilling into the finished deck.** There is no
+cable path through the mount: `part_anchor_fixed` is a solid plate, a solid 26mm
+post and the socket cup, nothing bored through. The servo and LED wires have to
+run up the **outside** of the post, which means they need to surface next to it.
+
+Nothing in `tray.scad`'s `cable_holes` is near the centre, so **drill one 13mm
+bore at ~`[245, 290]`** (coordinates from the front-left corner, same frame as
+`cable_holes`). That position sits ~15mm clear behind the anchor plate's back
+edge (y=275), 25mm off the x=220 seam so it lands cleanly inside the `BR` panel,
+and clear of the seam bosses at `[220,330]` and `[240,225]`. It is directly
+behind the skull and therefore invisible from the front.
+
+If `tray.scad` is ever re-rendered, add it to `cable_holes` rather than
+re-drilling. Full layout reasoning and the routing rule are in `HALLOWEEN.md`
+("Tray layout" / "Cable routing").
+
+⚠️ **`part_anchor_fixed` has no relief for the seam bosses.** Two of them —
+`[220,240]` and `[240,225]` — fall inside the mount plate's 100 × 100 footprint
+and stand 8mm proud. If those seam bolts are fitted the plate rocks on two
+bosses instead of sitting flat, on the one genuinely load-bearing joint in the
+build. Either relieve the plate or leave those two seam positions unbolted.
+
+**Pi 5 sled — briefed, not started.** A printed sled to hold the Pi 5mm–10mm off
+the deck with airflow for the Active Cooler, bolted down with M4 into the leg
+void. Spec and constraints in `COWORK_BRIEF_pi_sled.md`. ⚠️ The Pi's four M2.5
+mounting holes are 58 × 49mm and **not centred on the board** — inset 3.5mm from
+three edges but 23.5mm from the USB/Ethernet end.
+
 **Component covers** (rock / bone / tombstone) for the PIR, mic, Pi + breadboard,
 and powerboard — not started.
 
@@ -137,6 +166,7 @@ cad/tray_v1/
   src/tray.scad             parametric source — tray + legs
   src/skull_mount.scad      parametric source — mount v1, v2, coupons, plate
   src/eye_led_mount.scad    parametric source — eye LED plug
+  src/pi_sled.scad          (pending — see COWORK_BRIEF_pi_sled.md)
 
   tray_FL/FR/BL/BR.stl      deck panels (printed)
   tray_LEG.stl              leg, print ×4 (printed)

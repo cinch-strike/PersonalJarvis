@@ -77,6 +77,140 @@ JARVIS_AUDIO_OUTPUT=plughw:3,0                    # Pebble
 Scarier still: raise `LENGTH_SCALE` toward 1.4–1.5 and `PITCH` to -5. Past
 about -6 it stops sounding like a voice and starts sounding like an artefact.
 
+### Tray layout (as planned — 440 × 450 deck)
+
+**Left and right always mean YOURS, standing at the front where the guests do**
+— not the skull's anatomical left/right, which is mirrored. This matches the
+CAD: in `tray.scad`, `(0,0)` is the front-left corner, x increases to your
+right, y increases toward the back, and the `FL`/`FR`/`BL`/`BR` engravings on
+the panel undersides follow the same convention. All coordinates below are
+`[x, y]` in mm from that front-left corner.
+
+**Bores already printed into the deck** (`tray.scad`, `cable_holes`):
+
+| Bore | Position | Used for |
+|---|---|---|
+| `[180, 37]` | front, left of centre | PIR |
+| `[255, 37]` | front, right of centre | mic / ReSpeaker |
+| `[397, 60]` | right lane, front | **Pi 5** |
+| `[397, 300]` | right lane, back | **breadboard** |
+| `[80, 365]` | back left | **powerboard + 5V PSU** (was drawn for the speakers) |
+| `[225, 330]` `[350, 330]` | back centre | spare / powerboard cords |
+
+Plus a 40mm extension-cord exit slot centred on the back edge.
+
+```
+                    BACK — extension cord enters here
+     ┌────────────────────┤ EXIT ├───────────────────────┐
+     │                                                   │
+     │  ╔═══════════════════════╗       ╔══════════════╗ │
+     │  ║  POWERBOARD  +  5V    ║       ║   SPEAKERS   ║ │
+     │  ║       ○ [80,365]      ║       ║   stacked ×2 ║ │
+     │  ╚═══════════════════════╝       ║  ○ [397,300] ║ │
+     │            ○[225,330]    ○[350,330] ╚═══════════╝ │
+     │                                                   │
+     │          ·  ·  ·  ·  ·  ·  ·      ┌─────────────┐ │
+     │       ·        ◉ ←DRILL      ·    │             │ │
+     │     ·        ┌────────────┐   ·   │ BREADBOARD  │ │
+     │    ·         │   SKULL    │    ·  │  aft — out  │ │
+     │    ·         │   MOUNT    │    ·  │  of reach   │ │
+     │    ·         │ plate 100² │    ·  │             │ │
+     │    ·         │  220, 225  │    ·  └─────────────┘ │
+     │     ·        └────────────┘   ·        ╎ short    │
+     │       ·                      ·         ╎ jumpers  │
+     │          ·  ·  ·  ·  ·  ·  ·      ┌─────────────┐ │
+     │        skull envelope ⌀200        │    PI  5    │ │
+     │                                   │ GPIO◄  ►USB │ │
+     │     ●[180,37]        ●[255,37]    │  ○ [397,60] │ │
+     │       PIR              MIC        └─────────────┘ │
+     └───────────────────────────────────────────────────┘
+    LEFT                FRONT (guests)               RIGHT
+
+  ○ = bore already printed in the deck     ◉ = drill this one ≈[245,290]
+```
+
+**Why the pieces sit where they do:**
+
+- **Pi forward, breadboard aft.** The breadboard is the most fragile item on the
+  tray — loose jumpers and a 470µF cap standing proud — and the front edge is
+  where guests (and kids) reach. The sealed board with no exposed pins goes at
+  the front; the fragile one goes behind it.
+- **Pi and breadboard adjacent, not split.** Their interconnects (GND to pin 14,
+  LED GPIO from pin 16) stay short and above deck, hidden inside butted covers.
+  Route them under the deck instead and you need ~400mm jumpers — standard
+  Dupont are 200mm.
+- **Powerboard back-left, speakers back-right.** Balances the mass; otherwise
+  every heavy item sits on the right half. The speakers take over the
+  `[397,300]` bore for their USB cable.
+- **Pi orientation:** long axis front-to-back, **GPIO edge inboard** (all its
+  clients — PIR, servo signal, LED, breadboard — are that way), **USB edge
+  outboard**, **USB-C power on the back short edge**. The gap between the Pi and
+  the tray edge becomes the USB cable channel.
+- Pull the right lane inboard to about **x 345–411**, don't centre components on
+  the x=397 bores — a bore only needs to be *somewhere under* its cover, and
+  hard against the tray edge leaves no room for a cover wall or a plug's strain
+  relief.
+
+### Cable routing — under the deck, always
+
+> **Every component's cables leave downward through a bore that sits inside its
+> own cover's footprint. Nothing crosses the top of the deck.**
+
+That is what the 30mm leg void is for, and it means no cover needs a cable slot
+cut in its side — the wires are hidden before they leave the cover.
+
+⚠️ **There is no cable path through the skull mount.** `part_anchor_fixed` in
+`skull_mount.scad` is a solid plate, a solid 26mm post and the socket cup —
+nothing is bored through it. The servo and LED wires run up the **outside** of
+the 40mm post and into the skull's base opening.
+
+**The skull umbilical:** breadboard → down through `[397,300]` (inside its own
+cover) → across the void → **up through a new bore at ≈`[245,290]`** → ~70mm
+across the deck behind the skull → up the back of the post → into the skull.
+
+That bore has to be drilled; nothing near the mount exists. 13mm spade bit or
+step drill through 6mm PLA. `[245,290]` sits ~15mm clear behind the anchor
+plate's back edge (y=275), 25mm off the x=220 seam so it lands cleanly inside
+the `BR` panel, and clear of the seam bosses at `[220,330]` and `[240,225]`.
+It is directly behind the skull, so it is invisible from the front.
+
+⚠️ **Put a disconnect at the foot of the post.** The mount is designed so the
+skull lifts straight off the ball, and with only ~1° of jaw travel you *will* be
+taking it off to re-run `--jog-jaw`. Hard-wire both ends and you cannot. Leave
+enough slack to lift the skull 150mm and set it beside the tray still live, plus
+a labelled 6-way connector for full removal.
+
+⚠️ **A USB-A plug will not pass a 13mm bore** — the connector is 12 × 4.5mm but
+the overmoulding is typically 15–18mm. Three cables are USB (ReSpeaker, Pebble,
+USB-C power). Either ream that bore to ~20mm, or give the covers a small
+**skirt gap** at the deck so fat plugs pass under the cover edge. The skirt gap
+doubles as the Active Cooler's air intake, which is needed anyway.
+
+### Mounting the components to the deck
+
+- **Pi 5:** on a printed sled, 5–10mm clear of the deck — never flat (underside
+  solder joints, no airflow). See `COWORK_BRIEF_pi_sled.md`. The Pi's four M2.5
+  holes are 58 × 49mm and ⚠️ **not centred on the board** — inset 3.5mm from
+  three edges but 23.5mm from the USB/Ethernet end.
+- **No foam under anything.** It insulates where airflow is needed, creeps under
+  load so the board goes wonky and stresses the USB connectors, and does not
+  locate the board against a knock. There is no vibration source to isolate —
+  the servo is up in the skull on its own mount.
+- **Breadboard:** its own adhesive backing is fine. Wipe the deck with isopropyl
+  first (layer lines already cut the contact area), dry-position it and check the
+  cover clears *before* peeling — it will not come up cleanly off printed PLA.
+- **PA3713 and the 470µF cap** are the loosest items in that cluster and the
+  PA3713 carries the only real current. Fix it down rather than letting it float
+  on its wires; it can share the breadboard's cover.
+
+### ⚠️ Check before the skull goes back on
+
+`part_anchor_fixed` has **no relief cut for the tray's seam bosses**, and two of
+them — at `[220,240]` and `[240,225]` — fall inside the mount plate's 100 × 100
+footprint and stand 8mm proud of the deck. If those seam bolts are fitted, the
+plate is rocking on two bosses instead of sitting flat, which is bad for the one
+genuinely load-bearing joint on the build. Look underneath and confirm.
+
 ### As-built wiring (this rig)
 
 | PIR pin (L→R) | Wire colour | Pi pin |

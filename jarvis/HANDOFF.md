@@ -207,6 +207,21 @@ the tether has.
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
 
+**5. Tray layout is settled** — see "Tray layout" and "Cable routing" in
+`HALLOWEEN.md` for the plan, the ASCII diagram and the reasoning. Left/right
+throughout means *yours, standing at the front*, matching `tray.scad`'s
+`FL`/`FR`/`BL`/`BR`. Two jobs fall out of it:
+
+- **Drill one 13mm bore at ~`[245,290]`** for the skull umbilical. There is no
+  cable path through the mount, so the servo/LED wires must surface behind the
+  post. Nothing in the printed deck is near the centre.
+- **Print a Pi sled** — the Pi has nothing holding it down. Briefed for Cowork
+  in `COWORK_BRIEF_pi_sled.md`.
+
+⚠️ Also flagged there: the mount plate has no relief for the seam bosses at
+`[220,240]` and `[240,225]`, which stand 8mm proud inside its footprint. Check
+the plate is sitting flat and not rocking on them.
+
 ### On-site, once it's in the bathroom
 
 - **Tune flush detection** with `--test-flush` (built, defaults off — see
@@ -312,4 +327,6 @@ source ~/.bashrc
 
 ---
 
-*Last updated: 29 August 2026 — full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*
+*Last updated: 30 August 2026 — tray printed, panels joined and the skull mount
+bolted at the centre; component layout and cable routing settled (see
+`HALLOWEEN.md`). Previously: full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*
