@@ -21,13 +21,19 @@ chest/eye height, and people approach it from the front, typically 0.5–1.5m aw
 | Function | Hardware |
 |---|---|
 | Brain | Raspberry Pi 5 (8GB) + official Active Cooler |
-| Hearing | ReSpeaker 4-Mic Array v2.0 (USB) |
+| Hearing | **ReSpeaker Mic Array v2.0** (Seeed 107990053, XMOS XVF-3000) — round USB board, Micro-B connector, USB ID `2886:0018` |
 | Voice | Creative Pebble V3 speaker (USB powered, 3.5mm in) |
 | Presence detection | Jaycar XC4444 PIR motion sensor |
 | Jaw (to add) | TowerPro SG90 micro servo, 9g, 1.6 kg·cm |
 
 The software drives everything over USB/GPIO. The print must **house** these,
 not replace them.
+
+⚠️ **Not the "ReSpeaker 4-Mic Array"** — that is a different Seeed product, a
+GPIO HAT that bolts to the Pi's header with no USB at all. This build uses the
+round **Mic Array v2.0** USB board. ⚠️ **Measure the actual board** before
+designing its opening; this project has already lost three reprints to a
+trusted-but-wrong spec (lesson 2 in `CAD_HANDOVER.md`).
 
 ---
 

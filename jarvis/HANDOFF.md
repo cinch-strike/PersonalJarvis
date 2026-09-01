@@ -166,6 +166,13 @@ mounted and calibrated · skeleton mount anchored · full dry run passed.
 
 **The software side is done.** Remaining work is physical + on-site tuning.
 
+> ⚠️ **The rig is currently STRIPPED.** The Pi and breadboard are now mounted to
+> the tray, but all wiring, the 470µF capacitor and the LED resistors were
+> removed to make mounting possible. USB-C power is connected and routed down;
+> nothing else is. **`REWIRE_PLAN.md` is the step-by-step rebuild** — drill
+> first, then one subsystem at a time with a meter check at each stage, glue
+> last. Do not wire it all at once.
+
 Settings as tuned live in `phase1/jarvis.env.example` (the live copy on the Pi
 holds secrets and is not in git). Build details and the calibration lessons are
 in `HALLOWEEN.md`. CAD lives in `cad/tray_v1/` — edit the `.scad` sources, not
@@ -206,6 +213,12 @@ the tether has.
 
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
+
+**6. Rewire the rig — `REWIRE_PLAN.md`.** The immediate next job at the bench.
+Stages: drill the USB holes → bench-test the jumper extensions → USB → PIR →
+breadboard rails + cap → servo → eyes → full run → glue. Each stage ends with a
+test that proves that subsystem alone, so a failure is always in what you just
+added.
 
 **5. Tray layout is settled** — see "Tray layout" and "Cable routing" in
 `HALLOWEEN.md` for the plan, the ASCII diagram and the reasoning. Left/right
@@ -327,6 +340,7 @@ source ~/.bashrc
 
 ---
 
-*Last updated: 30 August 2026 — tray printed, panels joined and the skull mount
-bolted at the centre; component layout and cable routing settled (see
-`HALLOWEEN.md`). Previously: full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*
+*Last updated: 1 September 2026 — Pi and breadboard mounted to the tray; wiring,
+capacitor and LED resistors removed for the mount, so the rig is stripped and
+awaiting the rebuild in `REWIRE_PLAN.md`. Tray printed, panels joined, skull
+mount bolted at the centre; layout and cable routing settled (see `HALLOWEEN.md`). Previously: full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*
