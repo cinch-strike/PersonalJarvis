@@ -59,9 +59,9 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_OWW_THRESHOLD` | `0.5` | openWakeWord detection threshold (0–1); raise to reduce false wakes |
 | `JARVIS_PORCUPINE_KEY` | — | Picovoice key (Porcupine only — now needs commercial approval) |
 | `JARVIS_WAKE_KEYWORD` | `jarvis` | Porcupine built-in keyword |
-| `JARVIS_AUDIO_DEVICE` | system default | sounddevice input device (index or name) — set to the ReSpeaker if needed |
+| `JARVIS_AUDIO_DEVICE` | system default | sounddevice input device (index **or name**). Use the **name** — `ReSpeaker` — indexes get renumbered by USB enumeration order |
 | `JARVIS_AUDIO_CHANNELS` | `1` | Capture channels (ReSpeaker = 6; ch0 used) |
-| `JARVIS_AUDIO_OUTPUT` | system default | ALSA playback device for TTS, e.g. `plughw:3,0` (Pebble). `espeak`'s default output isn't the Pebble, so set this on the Pi |
+| `JARVIS_AUDIO_OUTPUT` | system default | ALSA playback device for TTS. Use the **card name** — `plughw:CARD=V3,DEV=0` (Pebble) — not `plughw:3,0`; card numbers get renumbered. `espeak`'s default output isn't the Pebble, so set this on the Pi |
 | `JARVIS_VAD_SILENCE` | `500` | RMS below this = silence. Lower if it cuts you off; raise if it never stops |
 | `JARVIS_VAD_SILENCE_MS` | `1000` | Trailing silence (ms) that ends a question |
 | `JARVIS_MAX_UTTERANCE_S` | `15` | Hard cap per question (s) |
@@ -166,12 +166,21 @@ mounted and calibrated · skeleton mount anchored · full dry run passed.
 
 **The software side is done.** Remaining work is physical + on-site tuning.
 
-> ⚠️ **The rig is currently STRIPPED.** The Pi and breadboard are now mounted to
-> the tray, but all wiring, the 470µF capacitor and the LED resistors were
-> removed to make mounting possible. USB-C power is connected and routed down;
-> nothing else is. **`REWIRE_PLAN.md` is the step-by-step rebuild** — drill
-> first, then one subsystem at a time with a meter check at each stage, glue
-> last. Do not wire it all at once.
+> ✅ **Rewired and proven — 5 September 2026.** The Pi and breadboard are mounted
+> to the tray and the whole rig was rebuilt from bare boards: PIR, both USB
+> devices, power rails, capacitor, servo, both eyes, then a full conversation end
+> to end. As-built rows, wire colours and what it turned up are in `HALLOWEEN.md`
+> ("As-built breadboard layout" / "Things the rewire turned up"); the procedure
+> is in `REWIRE_PLAN.md`.
+>
+> ⚠️ **Audio devices are now pinned by NAME, not card number** —
+> `JARVIS_AUDIO_DEVICE=ReSpeaker` and `JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0`.
+> The cards had swapped during the rebuild and the old numeric settings pointed
+> the speaker output at the microphone, which fails silently.
+>
+> **Left to do:** glue the loom · re-glue the jaw linkage and re-run `--jog-jaw` ·
+> component covers · ⚠️ `sudo systemctl enable jarvis` **last**, after all bench
+> work but before the night.
 
 Settings as tuned live in `phase1/jarvis.env.example` (the live copy on the Pi
 holds secrets and is not in git). Build details and the calibration lessons are
@@ -214,11 +223,10 @@ the tether has.
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
 
-**6. Rewire the rig — `REWIRE_PLAN.md`.** The immediate next job at the bench.
-Stages: drill the USB holes → bench-test the jumper extensions → USB → PIR →
-breadboard rails + cap → servo → eyes → full run → glue. Each stage ends with a
-test that proves that subsystem alone, so a failure is always in what you just
-added.
+**6. Rewire the rig — ✅ DONE 5 Sep 2026.** See `REWIRE_PLAN.md` for the
+procedure and `HALLOWEEN.md` for the as-built result. Remaining from it: glue the
+loom, re-glue the linkage and recalibrate the jaw, and re-enable the service at
+boot.
 
 **5. Tray layout is settled** — see "Tray layout" and "Cable routing" in
 `HALLOWEEN.md` for the plan, the ASCII diagram and the reasoning. Left/right
@@ -266,7 +274,7 @@ cd ~/PersonalJarvis && git pull
 cd jarvis/phase1
 .venv/bin/python -m pip install openwakeword
 export JARVIS_INPUT_MODE=wake_word
-export JARVIS_AUDIO_DEVICE=0        # ReSpeaker 4 Mic Array (confirmed via query_devices)
+export JARVIS_AUDIO_DEVICE=ReSpeaker   # by name — indexes get renumbered
 export JARVIS_AUDIO_CHANNELS=6      # ReSpeaker exposes 6ch; ch0 (processed) is used
 .venv/bin/python jarvis.py --doctor   # expect Wake word ✅ (openWakeWord ready)
 .venv/bin/python jarvis.py            # say "hey jarvis", ask, it answers. Ctrl+C to quit.
@@ -277,9 +285,9 @@ export JARVIS_AUDIO_CHANNELS=6      # ReSpeaker exposes 6ch; ch0 (processed) is 
 ```bash
 cat >> ~/.bashrc <<'EOF'
 export JARVIS_INPUT_MODE=wake_word
-export JARVIS_AUDIO_DEVICE=0          # ReSpeaker (capture)
+export JARVIS_AUDIO_DEVICE=ReSpeaker  # ReSpeaker (capture), by name
 export JARVIS_AUDIO_CHANNELS=6
-export JARVIS_AUDIO_OUTPUT=plughw:3,0 # Pebble speaker (TTS playback)
+export JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0 # Pebble (TTS playback), by card name
 EOF
 source ~/.bashrc
 ```
@@ -301,7 +309,7 @@ source ~/.bashrc
 - **Natural voice — DONE (piper + alan).** Installed on the Pi:
   - Binary: `~/piper/` (from rhasspy/piper `2023.11.14-2` `piper_linux_aarch64.tar.gz`).
   - Voice: `~/piper-voices/en_GB-alan-medium.onnx` (+ `.onnx.json`) — calm British male.
-  - `~/.bashrc` sets `PATH=$HOME/piper:$PATH` + `JARVIS_PIPER_MODEL=…alan-medium.onnx`; Jarvis then auto-selects piper over espeak. Playback still via `JARVIS_AUDIO_OUTPUT=plughw:3,0`.
+  - `~/.bashrc` sets `PATH=$HOME/piper:$PATH` + `JARVIS_PIPER_MODEL=…alan-medium.onnx`; Jarvis then auto-selects piper over espeak. Playback still via `JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0`.
   - Swap voices: download another from rhasspy/piper-voices on HF and repoint `JARVIS_PIPER_MODEL`. (The macOS prebuilt piper binary is broken — missing dylibs — but Linux/Pi is fine.)
 - **Phase 3.5 offline** — install Ollama (`ollama pull llama3.1`); `JARVIS_LLM_BACKEND` already supports auto-fallback.
 - **Auto-start 24/7 (systemd)** — see `phase1/jarvis.service.example`. Setup:
@@ -311,9 +319,9 @@ source ~/.bashrc
   cat > ~/.config/jarvis/jarvis.env <<EOF
   ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
   JARVIS_INPUT_MODE=wake_word
-  JARVIS_AUDIO_DEVICE=0
+  JARVIS_AUDIO_DEVICE=ReSpeaker
   JARVIS_AUDIO_CHANNELS=6
-  JARVIS_AUDIO_OUTPUT=plughw:3,0
+  JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0
   JARVIS_PIPER_MODEL=$JARVIS_PIPER_MODEL
   PATH=$HOME/piper:/usr/local/bin:/usr/bin:/bin
   EOF
@@ -340,7 +348,7 @@ source ~/.bashrc
 
 ---
 
-*Last updated: 1 September 2026 — Pi and breadboard mounted to the tray; wiring,
-capacitor and LED resistors removed for the mount, so the rig is stripped and
-awaiting the rebuild in `REWIRE_PLAN.md`. Tray printed, panels joined, skull
+*Last updated: 5 September 2026 — rig fully rewired from bare boards and proven
+end to end, including a full conversation. Audio devices now pinned by name so
+card renumbering cannot silently break the prop. Tray printed, panels joined, skull
 mount bolted at the centre; layout and cable routing settled (see `HALLOWEEN.md`). Previously: full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*

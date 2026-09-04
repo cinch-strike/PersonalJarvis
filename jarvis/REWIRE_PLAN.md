@@ -4,6 +4,21 @@
 the capacitor and the LED resistors were removed to make mounting easier, so
 this rebuilds the electronics from bare boards.*
 
+> ## ✅ EXECUTED — 5 September 2026, all stages passed
+>
+> Rebuilt from bare boards in one session: PIR, both USB devices, power rails,
+> capacitor, servo, both eyes, then a full conversation end to end. **The
+> as-built row numbers, wire colours and the five things this turned up are
+> recorded in `HALLOWEEN.md`** ("As-built breadboard layout" and "Things the
+> rewire turned up"). Read those before touching the wiring again.
+>
+> **Still outstanding:** glue the loom, re-glue the jaw linkage and re-run
+> `--jog-jaw`, the component covers, and ⚠️ `sudo systemctl enable jarvis` —
+> which must be done LAST, after all bench work, but before the night.
+>
+> The stage-by-stage procedure below is kept because it is the right order to
+> work in if this ever has to be done again.
+
 **State when this was written:** Pi mounted, breadboard mounted (adhesive),
 USB-C power connected and routed down through the deck. Nothing else connected.
 
@@ -270,10 +285,12 @@ deadband and the mounted jaw amplifies that into obvious chatter.
 current evenly — small differences mean one hogs it, runs bright, and dims the
 other.
 
-**Which value?** `HALLOWEEN.md` contradicts itself — one section says 330Ω, the
-detailed section says **470Ω** with the colour code `yellow-violet-brown-gold`.
-**Measure the ones you pulled out** with the meter and put those back; they're
-what worked in the dry run. Then fix whichever line in `HALLOWEEN.md` is wrong.
+**Which value? SETTLED: 470Ω.** The pair fitted to this build measured **462Ω
+and 463Ω** out of circuit. `HALLOWEEN.md` used to say 330Ω in one place; that
+line has been corrected. ⚠️ Still measure any replacement rather than reading the
+bands — 470Ω (`yellow-violet-brown-gold`) and 680Ω (`blue-grey-brown-gold`) are
+easy to confuse, and a mismatched pair makes one eye visibly brighter than the
+other, which reads as a fault rather than an effect.
 
 Wiring: Pi pin 16 (GPIO23) → 470Ω → LED **long leg** (anode). LED **short leg**
 (cathode) → blue (−) rail. Both eyes share GPIO23.

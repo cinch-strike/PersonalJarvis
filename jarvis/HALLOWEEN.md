@@ -41,7 +41,7 @@ GPIO and no way for our code to read them. We need a bare 3-pin module.
 | Part | ~NZD | Notes |
 |---|---|---|
 | SG90 micro servo (Jaycar) | ~$10 | Moves the jaw |
-| Red 5mm LEDs + 330Ω resistors | ~$5 | Eye sockets |
+| Red 3mm LEDs + 470Ω resistors | ~$5 | Eye sockets. ⚠️ 3mm, not 5mm — see `CAD_HANDOVER.md` lesson 2 |
 | [ChatterPi](https://hackaday.io/project/181612-chatterpi) | free | Drives the servo from audio volume so the jaw syncs to speech |
 
 **Printed:** skull with hinged jaw (plenty of free models on Printables/Thingiverse
@@ -69,9 +69,9 @@ JARVIS_VAD_SILENCE_MS=700                         # snappier end-of-speech
 JARVIS_PIPER_MODEL=$HOME/piper-voices/en_GB-alan-medium.onnx
 JARVIS_PIPER_LENGTH_SCALE=1.3                     # slower = menacing
 JARVIS_PIPER_PITCH=-3                             # deeper (needs sox)
-JARVIS_AUDIO_DEVICE=0                             # ReSpeaker
+JARVIS_AUDIO_DEVICE=ReSpeaker                             # ReSpeaker
 JARVIS_AUDIO_CHANNELS=6
-JARVIS_AUDIO_OUTPUT=plughw:3,0                    # Pebble
+JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0                    # Pebble
 ```
 
 Scarier still: raise `LENGTH_SCALE` toward 1.4–1.5 and `PITCH` to -5. Past
@@ -221,6 +221,99 @@ genuinely load-bearing joint on the build. Look underneath and confirm.
 
 ⚠️ Note **red is GND here**, not power — counterintuitive if you re-trace it later.
 
+### As-built breadboard layout (after the tray rewire)
+
+Everything was stripped to mount the Pi and breadboard to the tray, then rebuilt
+one subsystem at a time. This is where it all landed. Row numbers are the
+breadboard's own printed numbering.
+
+| Row | What's there |
+|---|---|
+| **3** | PA3713 screw terminals — red wire to the red (+) rail, brown to blue (−) |
+| **12** | 470µF capacitor (long leg → red rail, striped leg → blue rail) **and** the servo's red and brown |
+| **43** | LED eye 1 anode (far leg of resistor 1) |
+| **45** | LED eye 2 anode (far leg of resistor 2) |
+| **60** | LED common node — yellow wire from Pi pin 16, plus one leg of each 470Ω resistor |
+| **62** (rail) | black wire, blue (−) rail → Pi pin 14 |
+
+**Cap placement is deliberate.** Supply at row 3, capacitor at row 12, servo at
+row 12 — the cap sits between the supply and the load. Its job is absorbing the
+servo's inrush, which it can only do if it is electrically close to where the
+servo draws. Spread the LED resistors out as much as you like; do not spread
+this one.
+
+**Wire colours as built:**
+
+| Colour | Run |
+|---|---|
+| 🟠 orange | PIR VCC → Pi pin 2 |
+| 🟤 brown | PIR OUT → Pi pin 11 |
+| 🔴 red | PIR GND → Pi pin 6 |
+| 🔴 red | PA3713 + → red rail |
+| 🟤 brown | PA3713 − → blue rail |
+| ⚫ black | blue rail → Pi pin 14 |
+| 🟤/🔴/🟠 | servo brown/red → rails at row 12; orange → Pi pin 12 |
+| 🟡 yellow | Pi pin 16 → LED node, row 60 |
+| 🔴/🟤 | each LED: red = anode → its resistor; brown = cathode → blue rail |
+
+⚠️ **Brown means different things in different places** — GND on the servo and
+the power feed, but OUT on the PIR and cathode on the LEDs. Don't trace by colour
+alone.
+
+### Things the rewire turned up
+
+**1. USB card numbers had swapped, and both audio settings are now pinned by
+name.** After remounting, the Pebble came up as card 2 and the ReSpeaker as
+card 3 — the reverse of what `PI_SETUP_DAY1.md` recorded. `JARVIS_AUDIO_OUTPUT=plughw:3,0`
+was therefore pointing at the microphone. That fails **silently**: no error, just
+a prop that never speaks.
+
+Fixed permanently by using names instead of numbers:
+
+```
+JARVIS_AUDIO_DEVICE=ReSpeaker                 # sounddevice matches on name
+JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0      # ALSA card name, from `aplay -l`
+```
+
+`config.py`'s `_audio_device()` returns an int only when the value is all digits,
+otherwise it passes the string through — so a name works. ALSA accepts
+`CARD=<name>` natively. **Neither can be renumbered by plugging into a different
+port.** Verify a name resolves with:
+
+```bash
+.venv/bin/python -c "import sounddevice as sd; print(sd.query_devices('ReSpeaker','input'))"
+speaker-test -D plughw:CARD=V3,DEV=0 -c 2 -t sine -l 1
+```
+
+**2. `~/.bashrc` had a duplicate `JARVIS_AUDIO_DEVICE` line.** Two exports, lines
+115 and 118, both set to the same value so it looked harmless. Edit one and miss
+the other and the later line silently wins. Always check with:
+
+```bash
+grep -n "JARVIS_AUDIO_DEVICE\|JARVIS_AUDIO_OUTPUT" ~/.bashrc ~/.config/jarvis/jarvis.env
+```
+
+Expect exactly one of each per file. (This is the same class of fault as the
+duplicated ElevenLabs key that produced `curl: (43) bad argument`.)
+
+**3. `--jog-jaw`'s first keypress can snap the horn.** [`jog.py`] warns:
+"The first move attaches the servo and may snap it toward 0°." Jog does not
+command anything on startup — it sits at the stored closed angle — but the first
+keypress is where gpiozero attaches the servo, and that attach can jump before it
+honours the angle. **So jog is not a safe way to avoid the linkage risk**; it is
+gentler than `--test-jaw` afterwards, but the first move carries the same hazard.
+Disconnect the linkage at whichever end is easier, or accept the risk knowingly.
+
+**4. Mark the linkage position on the jaw before disconnecting it.** The whole
+jaw travel is about 1° of servo rotation, so where the cable is glued *is* the
+calibration. A pen mark gets you back close; without one you start `--jog-jaw`
+from scratch.
+
+**5. Breadboard rows are split by the centre channel.** Holes a–e and f–j in the
+same numbered row are separate nodes. Three things shared row 60 here (the pin 16
+wire and both resistor legs) and all had to be on the same side. Beep it rather
+than trusting your eyes.
+
 ### Background ambience ✅
 
 A forest/graveyard loop plays while the prop is idle and **cuts the instant the
@@ -322,9 +415,9 @@ than stranded wire.
 `JARVIS_JAW_ENABLED=true` and `JARVIS_SERVO_PIN=18` live in `jarvis.env`, so the
 jaw works on boot without manual exports.
 
-### LED eyes — reserved, not yet fitted
+### LED eyes — FITTED AND WORKING ✅
 
-GPIO 23 (pin 16) → 330Ω → LED long leg; LED short leg → blue `−` rail. Both eyes
+GPIO 23 (pin 16) → **470Ω** → LED long leg; LED short leg → blue `−` rail. Both eyes
 share one GPIO (two red LEDs ≈ 8mA, under the ~16mA per-pin limit).
 ⚠️ Resistors are **not optional** — an LED straight off a GPIO can destroy both.
 
@@ -428,7 +521,13 @@ level shifter, no divider.
 | GPIO 23 | pin 16 |
 | GND | blue `−` rail (common with the Pi and the servo supply) |
 
-Each LED gets **its own 470Ω resistor** (`yellow-violet-brown-gold`) between
+**470Ω is confirmed by measurement** — the pair fitted to this build read
+**462Ω and 463Ω** out of circuit. An earlier draft of this document said 330Ω in
+one place; that was wrong and has been corrected. ⚠️ 470Ω (`yellow-violet-brown-gold`)
+and 680Ω (`blue-grey-brown-gold`) are easy to confuse by eye — **measure, don't read
+the bands**.
+
+Each LED gets **its own 470Ω resistor** between
 GPIO 23 and its anode; cathodes go to the `−` rail. Two LEDs on one shared
 resistor would not split current evenly — small differences between them mean
 one hogs the current, runs brighter, and dims the other.
@@ -498,9 +597,9 @@ sudo apt install -y swig python3-dev liblgpio-dev
 export JARVIS_INPUT_MODE=motion
 export JARVIS_PERSONA=skull
 export JARVIS_MOTION_PIN=17
-export JARVIS_AUDIO_DEVICE=0
+export JARVIS_AUDIO_DEVICE=ReSpeaker
 export JARVIS_AUDIO_CHANNELS=6
-export JARVIS_AUDIO_OUTPUT=plughw:3,0
+export JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0
 export JARVIS_CLAUDE_MODEL=claude-haiku-4-5      # fastest — matters at a party
 
 .venv/bin/python jarvis.py --doctor    # expect: Motion sensor ✅
@@ -552,9 +651,9 @@ persona and its greeting, the Claude model, TTS/input mode, and what's missing.
 ```bash
 export JARVIS_PERSONA=skull
 export JARVIS_CLAUDE_MODEL=claude-haiku-4-5
-export JARVIS_AUDIO_DEVICE=0
+export JARVIS_AUDIO_DEVICE=ReSpeaker
 export JARVIS_AUDIO_CHANNELS=6
-export JARVIS_AUDIO_OUTPUT=plughw:3,0
+export JARVIS_AUDIO_OUTPUT=plughw:CARD=V3,DEV=0
 export JARVIS_OWW_THRESHOLD=0.6
 ```
 
