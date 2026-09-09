@@ -235,9 +235,33 @@ def check_aws() -> Check:
         return Check("AWS DynamoDB", WARN, f"could not resolve AWS credentials: {e}")
 
 
+def check_env_file() -> Check:
+    """Catch the same variable set twice in the env file.
+
+    os.environ cannot show this — duplicates have already collapsed to the last
+    line by the time anything reads them. Conflicting values are a FAIL because
+    the file then means something different from what it looks like; agreeing
+    values are only a WARN, since the behaviour is right but the next edit is a
+    trap.
+    """
+    dupes = config.duplicate_env_vars()
+    if not dupes:
+        return Check("Env file", OK, f"{config.ENV_FILE} — no duplicates")
+    clashing = {k: v for k, v in dupes.items() if len(set(v)) > 1}
+    if clashing:
+        detail = "; ".join(
+            f"{k} = {' vs '.join(sorted(set(v)))}" for k, v in sorted(clashing.items())
+        )
+        return Check("Env file", FAIL,
+                     f"CONFLICTING duplicates, last line silently wins — {detail}")
+    return Check("Env file", WARN,
+                 "duplicated but agreeing: " + ", ".join(sorted(dupes)))
+
+
 # Order matters only for display.
 ALL_CHECKS = (
     check_python,
+    check_env_file,
     check_persona,
     check_model,
     check_speech_speed,

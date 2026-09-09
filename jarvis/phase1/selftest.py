@@ -145,10 +145,27 @@ def _check_gpio() -> bool:
     return ok
 
 
+def _check_env() -> bool:
+    """Same duplicate scan doctor does — repeated here because this is the one
+    that runs unattended at every boot, and a conflicting duplicate is exactly
+    the fault nobody is watching for."""
+    dupes = config.duplicate_env_vars()
+    if not dupes:
+        return _line(True, "Env file", f"{config.ENV_FILE} — no duplicates")
+    clashing = {k: v for k, v in dupes.items() if len(set(v)) > 1}
+    if clashing:
+        detail = "; ".join(
+            f"{k} = {' vs '.join(sorted(set(v)))}" for k, v in sorted(clashing.items())
+        )
+        return _line(False, "Env file", f"CONFLICTING duplicates — {detail}")
+    return _line(True, "Env file",
+                 "duplicated but agreeing: " + ", ".join(sorted(dupes)))
+
+
 def run() -> int:
     """Exercise every device. 0 if nothing is missing or dead, 1 otherwise."""
     print(f"\n🔧 {config.NAME} self test  (persona: {config.PERSONA})\n")
-    results = [_check_speaker(), _check_mic(), _check_gpio()]
+    results = [_check_env(), _check_speaker(), _check_mic(), _check_gpio()]
     failed = results.count(False)
     if failed:
         print(f"\n   ❌ {failed} check(s) failed — see above.")

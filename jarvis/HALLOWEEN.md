@@ -212,6 +212,55 @@ footprint and stand 8mm proud of the deck. If those seam bolts are fitted, the
 plate is rocking on two bosses instead of sitting flat, which is bad for the one
 genuinely load-bearing joint on the build. Look underneath and confirm.
 
+### ⚠️ Config lives in ONE file now — `~/.config/jarvis/jarvis.env`
+
+This document used to say "set it in **both** `~/.bashrc` and
+`~/.config/jarvis/jarvis.env` — keep them in sync or the prop behaves
+differently depending on how it was started". That advice was followed and it
+still failed, three separate times in one evening on 9 Sep 2026:
+
+| Variable | Where | Damage |
+|---|---|---|
+| `JARVIS_AUDIO_DEVICE` | `.bashrc` twice | harmless — both copies agreed |
+| `JARVIS_ELEVENLABS_KEY` / `_VOICE` | `.bashrc` twice each | **ElevenLabs died with HTTP 401.** The stale copy won and the voice silently fell back to piper |
+| `JARVIS_INPUT_MODE` | `.bashrc` ×3, `jarvis.env` ×2 | ⚠️ the two in `jarvis.env` **disagreed** — `wake_word` then `motion`. `motion` won only because it came last |
+
+That last one is the dangerous one. Reorder those lines and the prop starts
+listening for a wake word instead of reacting to people walking up, which on the
+night reads as completely dead.
+
+**The fix is structural: stop keeping two copies.** `.bashrc` now sources the
+same file systemd reads, so a manual run and the service cannot disagree:
+
+```bash
+# --- Jarvis: one source of truth ---------------------------------------
+if [ -f ~/.config/jarvis/jarvis.env ]; then
+    _jarvis_saved_path="$PATH"
+    set -a; . ~/.config/jarvis/jarvis.env; set +a
+    PATH="$HOME/piper:$_jarvis_saved_path"
+    unset _jarvis_saved_path
+fi
+```
+
+⚠️ **The PATH dance is not optional.** `jarvis.env` sets a minimal absolute
+`PATH` for systemd's benefit (`/home/jarvis/piper:/usr/local/bin:/usr/bin:/bin`).
+Source that blindly into an interactive shell and you lose everything outside
+those four directories. Save it, source, restore with piper prepended.
+
+Side benefit: the API keys now live in exactly one file, at mode 600, instead of
+being copied into a `.bashrc` that is easy to read over someone's shoulder.
+
+**Checking for duplicates** — do this after any config edit:
+
+```bash
+grep -o '^[A-Z_]*' ~/.config/jarvis/jarvis.env | sort | uniq -d
+```
+
+Anything it prints is duplicated. Empty output is what you want. systemd's
+`EnvironmentFile` takes the **last** value, so a duplicate is never a syntax
+error — it just quietly means something other than what you read at the top of
+the file.
+
 ### Pre-party checklist — the things software cannot check
 
 Run this on the day, in this order. **It needs a human**, and that is the whole

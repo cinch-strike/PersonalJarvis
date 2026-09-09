@@ -67,6 +67,7 @@ Env vars:
 """
 
 import os
+import re
 
 WHISPER_MODEL = os.environ.get("JARVIS_WHISPER_MODEL", "base")
 VOICE = os.environ.get("JARVIS_VOICE", "Daniel")
@@ -93,6 +94,47 @@ ENABLE_TOOLS = os.environ.get("JARVIS_ENABLE_TOOLS", "true").lower() in (
 )
 # Optional: better web search than keyless DuckDuckGo (free key: tavily.com).
 TAVILY_KEY = os.environ.get("JARVIS_TAVILY_KEY", "")
+
+
+# The env file systemd reads. ~/.bashrc now sources this same file, so there is
+# exactly one copy of every setting — see HALLOWEEN.md "Config lives in ONE file".
+ENV_FILE = os.path.expanduser(
+    os.environ.get("JARVIS_ENV_FILE", "~/.config/jarvis/jarvis.env")
+)
+
+_ENV_ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$")
+
+
+def duplicate_env_vars(path=None) -> dict:
+    """Variables assigned more than once in an env file, values in file order.
+
+    A running process CANNOT detect this from os.environ: by then the duplicates
+    have collapsed to whichever line came last. So this reads the file itself.
+
+    Worth the code. Silent duplicates caused three separate faults on this build
+    in one evening — a stale JARVIS_ELEVENLABS_KEY copy that killed the voice
+    with HTTP 401, and a JARVIS_INPUT_MODE where "wake_word" and "motion" both
+    appeared and only line order decided which the prop used. Neither is a
+    syntax error, so nothing complains; the file just does not mean what it
+    looks like it means.
+
+    Returns {name: [value, ...]} for names assigned twice or more. An unreadable
+    or missing file returns {} — this must never be what stops the prop.
+    """
+    try:
+        with open(path or ENV_FILE, encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return {}
+    seen: dict = {}
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = _ENV_ASSIGNMENT.match(line)
+        if m:
+            seen.setdefault(m.group(1), []).append(m.group(2).strip())
+    return {name: vals for name, vals in seen.items() if len(vals) > 1}
 
 
 def _audio_device():
@@ -329,7 +371,15 @@ _PERSONAS = {
 # Persona: pick a preset with JARVIS_PERSONA, or override individual pieces with
 # JARVIS_SYSTEM_PROMPT / JARVIS_GREETING / JARVIS_FAREWELL.
 PERSONA = os.environ.get("JARVIS_PERSONA", "jarvis").strip().lower()
-_persona = _PERSONAS.get(PERSONA, _PERSONAS["jarvis"])
+if PERSONA not in _PERSONAS:
+    # Say so. This used to fall back silently, and on 9 Sep 2026 that cost real
+    # bench time: JARVIS_PERSONA=vlad was set on a Pi whose code predated the
+    # vlad persona, so the prop greeted everyone as Jarvis and looked like an
+    # env problem when it was a stale checkout.
+    print(f"   ⚠️  Unknown JARVIS_PERSONA={PERSONA!r} — using 'jarvis'. "
+          f"Known: {', '.join(sorted(_PERSONAS))}")
+    PERSONA = "jarvis"
+_persona = _PERSONAS[PERSONA]
 
 NAME = os.environ.get("JARVIS_NAME") or _persona.get("name", "Jarvis")
 SYSTEM_PROMPT = os.environ.get("JARVIS_SYSTEM_PROMPT") or _persona["prompt"]
