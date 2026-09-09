@@ -87,30 +87,36 @@ def _count(text: str) -> int:
     return len(_WORD.findall((text or "").lower()))
 
 
-# all_of: every word must appear. any_of: at least one must. max_words: guard
-# against a long sentence that merely happens to contain the trigger word.
+# Each stage lists GROUPS of words. At least one word from every group must be
+# present. That is deliberately loose: the card is cryptic, so guests improvise
+# the question rather than reciting it, and "what are you waiting for" has to
+# work as well as "who are you waiting for". Requiring exact words here would
+# strand people who had already solved the puzzle.
 STAGES = (
     {
         "name": "story",
-        "all_of": {"who"},
-        "any_of": {"waiting", "miss", "missing", "wait"},
+        "groups": ({"who", "whom", "what", "whos", "whats"},
+                   {"waiting", "waits", "wait", "waited", "waitin",
+                    "miss", "misses", "missing", "missed",
+                    "lost", "lose", "loses", "losing"}),
         "max_words": None,
         "reply": lambda: STORY,
     },
     {
         "name": "found",
-        "all_of": {"skull"},
-        "any_of": {"found", "find", "got", "have"},
+        "groups": ({"skull"},
+                   {"found", "find", "finded", "got", "have", "has",
+                    "seen", "see", "saw", "theres", "there"}),
         "max_words": None,
         "reply": lambda: FOUND,
     },
     {
         # "jaw" is one short common word and Vlad will hear it in ordinary
         # chatter. Requiring a SHORT utterance keeps a rambling sentence that
-        # happens to contain it from giving the answer away early.
+        # happens to contain it from handing the answer to a group that has not
+        # earned it.
         "name": "jaw",
-        "all_of": set(),
-        "any_of": {"jaw", "teeth", "jawbone", "mouth"},
+        "groups": ({"jaw", "jaws", "jawbone", "teeth", "tooth", "mouth"},),
         "max_words": 6,
         "reply": lambda: JAW,
     },
@@ -152,9 +158,7 @@ class Quest:
 
         words = _words(text)
         for stage in STAGES:
-            if stage["all_of"] and not stage["all_of"] <= words:
-                continue
-            if stage["any_of"] and not (stage["any_of"] & words):
+            if not all(group & words for group in stage["groups"]):
                 continue
             if stage["max_words"] and _count(text) > stage["max_words"]:
                 continue

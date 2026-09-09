@@ -25,12 +25,32 @@ class StageMatchingTests(unittest.TestCase):
         self._is("Vlad, who are you waiting for?", "Her name was Elena")
 
     def test_key_question_variations_still_work(self):
-        # A child half-remembers it, or Whisper drops a word.
+        # The card is cryptic on purpose, so guests improvise rather than
+        # reciting. Every one of these is a phrasing a real person would try,
+        # and four of them failed before the matcher took question words and
+        # waiting words as separate groups.
         for said in ("who do you miss", "who are you waiting on",
-                     "so who is he waiting for", "who do you miss the most"):
+                     "so who is he waiting for", "who do you miss the most",
+                     "what are you waiting for", "what do you wait for",
+                     "what did you lose", "what have you lost",
+                     "what are you missing"):
             with self.subTest(said=said):
                 self.q._awaiting_name_until = 0
                 self._is(said, "Her name was Elena")
+
+    def test_a_loss_word_alone_does_not_trigger(self):
+        # Otherwise "I lost my phone" gets a guest the whole story.
+        for said in ("I lost my phone", "we are waiting for the pizza",
+                     "my sister is missing her jumper"):
+            with self.subTest(said=said):
+                self.q._awaiting_name_until = 0
+                self.assertIsNone(self.q.check(said))
+
+    def test_a_question_word_alone_does_not_trigger(self):
+        for said in ("who is that over there", "what is the weather"):
+            with self.subTest(said=said):
+                self.q._awaiting_name_until = 0
+                self.assertIsNone(self.q.check(said))
 
     def test_found_the_skull(self):
         self._is("we found the skull", "Elena!")
