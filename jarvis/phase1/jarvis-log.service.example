@@ -1,0 +1,47 @@
+# Transcript viewer (Pi) — read-only page of the night's conversations.
+#
+# Separate unit from jarvis.service on purpose: it must never be able to take
+# the prop down, and the prop must never wait on it. It only READS the SQLite
+# database Jarvis already writes (WAL mode, so a reader never blocks the
+# writer), so it cannot slow a reply down or lose a turn.
+#
+# Install:
+#   1. Put a token in ~/.config/jarvis/jarvis.env — the server refuses to start
+#      without one, because your guests are on the same WiFi:
+#        JARVIS_LOG_TOKEN=$(openssl rand -hex 8)
+#   2. sudo cp this file to /etc/systemd/system/jarvis-log.service (drop .example)
+#   3. sudo systemctl daemon-reload && sudo systemctl enable --now jarvis-log
+#   4. Open http://jarvis.local:8080/?k=<your token> on your phone
+#
+# Adjust paths if your username isn't "jarvis".
+
+[Unit]
+Description=Jarvis transcript viewer
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=jarvis
+WorkingDirectory=/home/jarvis/PersonalJarvis/jarvis/phase1
+EnvironmentFile=/home/jarvis/.config/jarvis/jarvis.env
+ExecStart=/home/jarvis/PersonalJarvis/jarvis/phase1/.venv/bin/python jarvis.py --serve-log
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+# Hardening: this serves a page to the local network, so give it as little as
+# possible. It never needs to write anything of its own.
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+NoNewPrivileges=true
+# ⚠️ NOT optional despite the read-only intent. SQLite in WAL mode must write
+# the -shm and -wal sidecar files even to READ, so a purely read-only mount
+# fails at boot with "unable to open database file" — which looks like a
+# missing database rather than a permissions problem, and wastes an evening.
+ReadWritePaths=/home/jarvis/PersonalJarvis/jarvis/phase1
+
+[Install]
+WantedBy=multi-user.target

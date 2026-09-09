@@ -129,6 +129,41 @@ def load_recent_turns(n: int = 20) -> list[dict]:
     return [dict(row) for row in reversed(rows)]
 
 
+def load_turns(since: str = None, session_id: int = None,
+               limit: int = None) -> list:
+    """Turns in chronological order, optionally filtered.
+
+    Written for the transcript view rather than the prompt: `load_recent_turns`
+    fetches newest-first for its LIMIT and is capped small, which is right for
+    feeding context to an LLM and wrong for reading a night's conversations.
+
+    `since` is an ISO timestamp compared against created_at as a string — the
+    format is fixed and zero-padded, so lexical and chronological order agree.
+
+    Safe to call from a separate process while Jarvis is running: the connection
+    opens the DB in WAL mode, so a reader never blocks the writer.
+    """
+    where, params = [], []
+    if since:
+        where.append("created_at >= ?")
+        params.append(since)
+    if session_id is not None:
+        where.append("session_id = ?")
+        params.append(session_id)
+    sql = ("SELECT id, session_id, role, content, created_at FROM conversations"
+           + (" WHERE " + " AND ".join(where) if where else "")
+           + " ORDER BY id ASC")
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(limit)
+    conn = _connect()
+    try:
+        rows = conn.execute(sql, params).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
+
+
 def close_session(session_id: int) -> None:
     """Mark a session as ended."""
     conn = _connect()

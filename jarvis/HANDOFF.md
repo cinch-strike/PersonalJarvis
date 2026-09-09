@@ -81,6 +81,10 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_NAME` | from persona | What it calls itself in console output (Jarvis / Skull / Vlad) |
 | `JARVIS_JAW_RATE_HZ` | `6` | Jaw open+close cycles per second. **2** is the tuned party value; 6 reads as frantic. ⚠️ the eyes pulse at this rate too, by design |
 | `JARVIS_ENV_FILE` | `~/.config/jarvis/jarvis.env` | The env file `--doctor` and the self test scan for duplicate variables |
+| `JARVIS_LOG_TOKEN` | — | **Required** for `--serve-log`. Without it the server refuses to start rather than exposing the night's conversations to everyone on the WiFi |
+| `JARVIS_LOG_PORT` | `8080` | Port for the transcript page |
+| `JARVIS_LOG_MAX_TURNS` | `300` | Most recent turns rendered per page load |
+| `JARVIS_LOG_REFRESH_S` | `15` | How often the page refreshes itself |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its
@@ -100,6 +104,8 @@ python3 jarvis.py --doctor   # full readiness probe: config, backends, API key, 
 python3 jarvis.py --selftest # EXERCISES the hardware (speaker, mic, GPIO) — runs at every boot
 python3 jarvis.py --say "..." # speak one line through voice + jaw + eyes
 python3 jarvis.py --test-vad # measure the room, get the JARVIS_VAD_SILENCE to use
+python3 jarvis.py --log      # markdown transcript of every conversation, to stdout
+python3 jarvis.py --serve-log # phone-readable transcript page (needs JARVIS_LOG_TOKEN)
 python3 -m unittest discover -p 'test_*.py'   # full test suite (backends, memory, sync, doctor)
 ```
 

@@ -456,6 +456,12 @@ if __name__ == "__main__":
     if "--jog-jaw" in args:
         import jog
         sys.exit(jog.run())
+    if "--log" in args:
+        import logview
+        sys.exit(logview.dump())
+    if "--serve-log" in args:
+        import logview
+        sys.exit(logview.serve())
     if "--test-vad" in args:
         import vadtune
         sys.exit(vadtune.run())
