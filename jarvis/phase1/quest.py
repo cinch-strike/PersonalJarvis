@@ -1,0 +1,165 @@
+"""
+The Elena treasure hunt — scripted, stateless, and deliberately forgiving.
+─────────────────────────────────────────────────────────────────────────
+Three stages, each triggered by what a guest SAYS rather than by remembered
+progress:
+
+  1. "Vlad, who are you waiting for?"   → he tells Elena's story (spa pool)
+  2. "we found the skull"               → he asks what is missing
+  3. "the jaw"                          → he sends them to fetch it, and asks
+                                          their name so the log records a winner
+
+⚠️ STATELESS ON PURPOSE. Vlad cannot tell one guest from another — the sensor
+re-arms between visitors and groups overlap all evening. Track "which stage is
+this team on" and one group reaching stage two changes what the next group
+hears. Because each stage has a distinct trigger, no memory is needed, and a
+group that says a later phrase first simply gets that answer. They still have to
+physically find the skull.
+
+⚠️ SCRIPTED, NOT IMPROVISED. Quest replies bypass the LLM entirely and are
+spoken verbatim. If the model paraphrased "a great box of hot water" as "a warm
+bath", the puzzle would send a child to the wrong room and nobody would know
+why. Bypassing is also faster, which matters with kids waiting.
+
+⚠️ MATCHING IS FUZZY BY NECESSITY. This is Whisper tiny.en in a loud room. We
+match on sets of common words, never on exact sentences and never on Elena's
+name — possessives transcribe badly ("Elenas", "a Lena's", "Alaina's") and
+requiring the name would add failure without adding security. Nobody reaches
+stage two by accident.
+
+Every string is configurable, so the wording can change up to the night without
+touching code. See JARVIS_QUEST_* in HANDOFF.md.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import time
+
+QUEST_ENABLED = os.environ.get("JARVIS_QUEST_ENABLED", "false").lower() in (
+    "1", "true", "yes", "on"
+)
+
+# Where winners are recorded. Separate from the conversation transcript so it
+# can be read at a glance on the night: one line per event, newest at the end.
+QUEST_LOG = os.path.expanduser(
+    os.environ.get("JARVIS_QUEST_LOG", "~/quest_log.txt")
+)
+
+STORY = os.environ.get("JARVIS_QUEST_STORY", (
+    "Her name was Elena, and she was always, always cold. Six centuries ago she "
+    "told me she had found a great box of hot water out in the garden, and that "
+    "she would warm her bones for just a moment. She never came back. If you are "
+    "braver than I am, go and look."
+))
+
+FOUND = os.environ.get("JARVIS_QUEST_FOUND", (
+    "Elena! After all this time. But look closely at her — something is missing, "
+    "is it not? Tell me what."
+))
+
+JAW = os.environ.get("JARVIS_QUEST_JAW", (
+    "Her jaw! She cannot speak a word to me without it. I saw something pale on "
+    "the table in the middle of the room where everyone gathers. Bring me both — "
+    "carry them to Donnie — and Elena and I shall be whole again. "
+    "Now tell me your name, so that I may curse it kindly."
+))
+
+# How long after the jaw stage we treat the next thing said as a name. Expires
+# so a visitor who wanders off does not cause the NEXT guest's first sentence to
+# be filed as a winner.
+NAME_WINDOW_S = float(os.environ.get("JARVIS_QUEST_NAME_WINDOW_S", "60"))
+
+NAME_THANKS = os.environ.get("JARVIS_QUEST_NAME_THANKS", (
+    "{name}. I shall remember it, which is more than I can say for most of the "
+    "living. Go — fetch her jaw."
+))
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _words(text: str) -> set:
+    return set(_WORD.findall((text or "").lower()))
+
+
+def _count(text: str) -> int:
+    return len(_WORD.findall((text or "").lower()))
+
+
+# all_of: every word must appear. any_of: at least one must. max_words: guard
+# against a long sentence that merely happens to contain the trigger word.
+STAGES = (
+    {
+        "name": "story",
+        "all_of": {"who"},
+        "any_of": {"waiting", "miss", "missing", "wait"},
+        "max_words": None,
+        "reply": lambda: STORY,
+    },
+    {
+        "name": "found",
+        "all_of": {"skull"},
+        "any_of": {"found", "find", "got", "have"},
+        "max_words": None,
+        "reply": lambda: FOUND,
+    },
+    {
+        # "jaw" is one short common word and Vlad will hear it in ordinary
+        # chatter. Requiring a SHORT utterance keeps a rambling sentence that
+        # happens to contain it from giving the answer away early.
+        "name": "jaw",
+        "all_of": set(),
+        "any_of": {"jaw", "teeth", "jawbone", "mouth"},
+        "max_words": 6,
+        "reply": lambda: JAW,
+    },
+)
+
+
+def _log(event: str, detail: str = "") -> None:
+    """Append one line to the quest log. Never raises — a logging failure must
+    not stop the prop mid-conversation."""
+    try:
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        with open(QUEST_LOG, "a", encoding="utf-8") as f:
+            f.write(f"{stamp}  {event}{('  ' + detail) if detail else ''}\n")
+    except OSError:
+        pass
+
+
+class Quest:
+    """Matches quest triggers against a transcript. One instance per run."""
+
+    def __init__(self, enabled: bool = None):
+        self.enabled = QUEST_ENABLED if enabled is None else enabled
+        self._awaiting_name_until = 0.0
+
+    def _awaiting_name(self) -> bool:
+        return time.monotonic() < self._awaiting_name_until
+
+    def check(self, text: str):
+        """Scripted reply for this utterance, or None to let the LLM answer."""
+        if not self.enabled or not (text or "").strip():
+            return None
+
+        # A name is only expected in the window right after the jaw stage.
+        if self._awaiting_name():
+            self._awaiting_name_until = 0.0
+            name = text.strip().rstrip(".!?")
+            _log("WINNER-NAME", name)
+            return NAME_THANKS.format(name=name)
+
+        words = _words(text)
+        for stage in STAGES:
+            if stage["all_of"] and not stage["all_of"] <= words:
+                continue
+            if stage["any_of"] and not (stage["any_of"] & words):
+                continue
+            if stage["max_words"] and _count(text) > stage["max_words"]:
+                continue
+            _log(f"STAGE-{stage['name'].upper()}", text.strip())
+            if stage["name"] == "jaw":
+                self._awaiting_name_until = time.monotonic() + NAME_WINDOW_S
+            return stage["reply"]()
+        return None

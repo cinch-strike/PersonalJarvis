@@ -85,6 +85,13 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_LOG_PORT` | `8080` | Port for the transcript page |
 | `JARVIS_LOG_MAX_TURNS` | `300` | Most recent turns rendered per page load |
 | `JARVIS_LOG_REFRESH_S` | `15` | How often the page refreshes itself |
+| `JARVIS_QUEST_ENABLED` | `false` | Turn the Elena treasure hunt on |
+| `JARVIS_QUEST_STORY` | (built in) | Stage 1 reply — Elena's story, points at the spa |
+| `JARVIS_QUEST_FOUND` | (built in) | Stage 2 reply — asks what is missing |
+| `JARVIS_QUEST_JAW` | (built in) | Stage 3 reply — sends them for the jaw, asks their name |
+| `JARVIS_QUEST_NAME_THANKS` | (built in) | Spoken back after a winner gives a name. `{name}` is substituted |
+| `JARVIS_QUEST_NAME_WINDOW_S` | `60` | How long after stage 3 the next utterance counts as a name |
+| `JARVIS_QUEST_LOG` | `~/quest_log.txt` | One line per stage reached and per winner name, with timestamps |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its

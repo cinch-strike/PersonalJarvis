@@ -48,6 +48,7 @@ tts_backend = None
 tool_registry = None
 jaw_servo = None        # servo jaw; None unless JARVIS_JAW_ENABLED
 led_eyes = None         # LED eyes; None unless JARVIS_EYES_ENABLED
+quest_state = None      # Elena treasure hunt; None unless JARVIS_QUEST_ENABLED
 flush_detector = None   # toilet-flush classifier; inert unless JARVIS_FLUSH_ENABLED
 flush_lines = []        # comebacks, generated at startup
 _last_flush_line = None # so the same gag doesn't land twice running
@@ -139,6 +140,17 @@ def handle_utterance(captured: list) -> None:
         print("  (nothing heard — try again)")
         return
     print(f"  You: {text}")
+    # Quest lines bypass the LLM entirely — spoken verbatim so a paraphrase
+    # cannot send a child to the wrong room, and faster with kids waiting.
+    scripted = quest_state.check(text) if quest_state is not None else None
+    if scripted is not None:
+        print("  🗝  (quest)")
+        memory.save_turn(session_id, "user", text)
+        memory.save_turn(session_id, "assistant", scripted)
+        conversation_history.append({"role": "user", "content": text})
+        conversation_history.append({"role": "assistant", "content": scripted})
+        speak(scripted)
+        return
     reply = ask_llm(text)
     speak(reply)
 
@@ -220,6 +232,7 @@ def check() -> int:
 def main() -> int:
     global whisper_model, llm_backend, tts_backend, session_id, system_prompt
     global tool_registry, jaw_servo, led_eyes, flush_detector, flush_lines
+    global quest_state
 
     print(f"\n⚡ {config.NAME} starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
@@ -259,6 +272,11 @@ def main() -> int:
         led_eyes = eyes_module.build_eyes()
         led_eyes.idle()
         print(f"   LED eyes: GPIO {led_eyes.pin}")
+
+    import quest as quest_module
+    quest_state = quest_module.Quest()
+    if quest_state.enabled:
+        print(f"   Quest: ON — log at {quest_module.QUEST_LOG}")
 
     barkers = config.BARKER_LINES
     if config.INPUT_MODE.strip().lower() == "motion":
