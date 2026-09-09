@@ -456,6 +456,9 @@ if __name__ == "__main__":
     if "--jog-jaw" in args:
         import jog
         sys.exit(jog.run())
+    if "--test-vad" in args:
+        import vadtune
+        sys.exit(vadtune.run())
     if "--test-flush" in args:
         import flush
         sys.exit(flush.self_test())

@@ -303,13 +303,17 @@ arrive.
 Louder speech also makes the jaw's clacking relatively quieter, so tune
 `JARVIS_JAW_RATE_HZ` **after** setting the volume, not before.
 
-⚠️ **Check 8 is the one people skip.** If `🎙 Listening` and `⏳ Processing` are
+⚠️ **Check 8 is the one people skip**, and `--test-vad` is how you fix it. If `🎙 Listening` and `⏳ Processing` are
 **15 seconds apart** in the log, the VAD never detected you stopping and it ran
 to the `JARVIS_MAX_UTTERANCE_S` hard cap. That means it recorded 14 seconds of
 room noise along with your question, which wrecks transcription. Fix by raising
-`JARVIS_VAD_SILENCE` until it ends on time — the room's noise floor is sitting
-above the current threshold. This was observed in the field and is easy to
-mistake for "it can't hear me".
+Do not guess the new value. **Too low and too high give the identical symptom** —
+below the room's noise floor, every frame reads as speech and the silence counter
+never advances; above your speaking voice, `speech_started` never becomes true
+and the counter is never consulted. Both run to the cap. Run `--test-vad` where
+the prop stands, with the door as it will be, and it measures both levels and
+tells you the number. This was observed in the field and is easy to mistake for
+"it can't hear me".
 
 ⚠️ **The Pebble's mode button is a known hazard.** It is easy to knock, and in
 the wrong mode the speaker still shows a power light, still enumerates, still

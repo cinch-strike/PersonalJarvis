@@ -99,6 +99,7 @@ python3 jarvis.py --check    # print selected backends, no mic/model — verify 
 python3 jarvis.py --doctor   # full readiness probe: config, backends, API key, SQLite, AWS
 python3 jarvis.py --selftest # EXERCISES the hardware (speaker, mic, GPIO) — runs at every boot
 python3 jarvis.py --say "..." # speak one line through voice + jaw + eyes
+python3 jarvis.py --test-vad # measure the room, get the JARVIS_VAD_SILENCE to use
 python3 -m unittest discover -p 'test_*.py'   # full test suite (backends, memory, sync, doctor)
 ```
 
@@ -272,6 +273,14 @@ the plate is sitting flat and not rocking on them.
 
 ### On-site, once it's in the bathroom
 
+- **Tune the silence threshold** with `--test-vad`, standing where the prop will
+  stand, with the door as it will be on the night. It takes two readings — the
+  room quiet, then you talking — and prints the `JARVIS_VAD_SILENCE` to use.
+  ⚠️ The threshold belongs to the ROOM, not the prop: a tiled bathroom and a
+  workbench are different acoustic spaces, so this cannot be done in advance.
+  ⚠️ Too low and too high produce the *same* symptom (a 15-second gap between
+  `🎙 Listening` and `⏳ Processing`), so guessing which way to move is a coin
+  flip — measure.
 - **Tune flush detection** with `--test-flush` (built, defaults off — see
   `HALLOWEEN.md`). Run it once while flushing, once while talking, set thresholds
   between the two readings.
