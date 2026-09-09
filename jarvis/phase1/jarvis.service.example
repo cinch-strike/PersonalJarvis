@@ -24,6 +24,10 @@ User=jarvis
 SupplementaryGroups=audio
 WorkingDirectory=/home/jarvis/PersonalJarvis/jarvis/phase1
 EnvironmentFile=/home/jarvis/.config/jarvis/jarvis.env
+# Exercise the hardware before starting, and log the result. The leading "-"
+# means a FAILED self test does not stop the prop starting — a half-working
+# prop beats no prop on the night, and the failure is loud in journalctl.
+ExecStartPre=-/home/jarvis/PersonalJarvis/jarvis/phase1/.venv/bin/python jarvis.py --selftest
 ExecStart=/home/jarvis/PersonalJarvis/jarvis/phase1/.venv/bin/python jarvis.py
 # The audio watchdog exits non-zero when the mic drops out, so the service must
 # restart on failure — that's the self-heal. RestartSec gives USB time to settle.

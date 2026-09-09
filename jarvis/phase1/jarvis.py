@@ -75,7 +75,7 @@ def speak(text: str) -> None:
     punctuation aloud (e.g. "*grins toothily*").
     """
     spoken = tts.clean_for_speech(text)
-    print(f"\n  Jarvis: {spoken}\n")
+    print(f"\n  {config.NAME}: {spoken}\n")
     if jaw_servo is not None:
         jaw_servo.start_talking()
     if led_eyes is not None:
@@ -401,6 +401,50 @@ def main() -> int:
     return 0
 
 
+def say(text: str) -> int:
+    """Speak one line through the full pipeline — voice, jaw and eyes.
+
+    Written for the sneak-preview video, but it earns its keep as a test: it is
+    the only way to watch voice, jaw rate and eye timing together without
+    waiting for the PIR to fire and then talking to the thing. Handy any time
+    JARVIS_JAW_RATE_HZ or the voice settings change.
+
+        python jarvis.py --say "I am Vlad, and I am delighted to meet you."
+    """
+    global jaw_servo, led_eyes, tts_backend
+
+    print(f"\n🎬 {config.NAME} speaks  (persona: {config.PERSONA})\n")
+    try:
+        tts_backend = tts.select_tts_backend(
+            config.VOICE, override=config.TTS_BACKEND, output_device=config.AUDIO_OUTPUT
+        )
+        print(f"   TTS backend: {tts_backend.name}")
+    except tts.TTSError as e:
+        print(f"\n❌ TTS unavailable: {e}\n")
+        return 1
+    if config.JAW_ENABLED:
+        try:
+            import jaw as jaw_module
+            jaw_servo = jaw_module.build_jaw()
+        except Exception as e:  # noqa: BLE001 — a missing jaw must not block the line
+            print(f"   (jaw unavailable: {e})")
+    if config.EYES_ENABLED:
+        try:
+            import eyes as eyes_module
+            led_eyes = eyes_module.build_eyes()
+            led_eyes.alert()
+        except Exception as e:  # noqa: BLE001
+            print(f"   (eyes unavailable: {e})")
+    try:
+        speak(text)
+    finally:
+        if jaw_servo is not None:
+            jaw_servo.close()
+        if led_eyes is not None:
+            led_eyes.close()
+    return 0
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if "--test-jaw" in args:
@@ -415,6 +459,16 @@ if __name__ == "__main__":
     if "--test-flush" in args:
         import flush
         sys.exit(flush.self_test())
+    if "--say" in args:
+        # Everything after the flag is the line, so it needn't be quoted.
+        spoken_line = " ".join(args[args.index("--say") + 1:]).strip()
+        if not spoken_line:
+            print('Usage: python jarvis.py --say "the line to speak"')
+            sys.exit(2)
+        sys.exit(say(spoken_line))
+    if "--selftest" in args:
+        import selftest
+        sys.exit(selftest.run())
     if "--doctor" in args:
         import doctor
         sys.exit(doctor.run())

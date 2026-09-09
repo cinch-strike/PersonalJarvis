@@ -60,12 +60,13 @@ Set in **both** `~/.bashrc` (manual runs) and `~/.config/jarvis/jarvis.env`
 depending on how it was started (this bit us once with the voice).
 
 ```bash
-JARVIS_PERSONA=skull
+JARVIS_PERSONA=vlad                               # named count; 'skull' is the older unnamed spirit
 JARVIS_INPUT_MODE=motion
 JARVIS_MOTION_PIN=17
 JARVIS_CLAUDE_MODEL=claude-haiku-4-5              # fastest — matters live
 JARVIS_WHISPER_MODEL=tiny.en                      # English-only: faster + more accurate
 JARVIS_VAD_SILENCE_MS=700                         # snappier end-of-speech
+JARVIS_JAW_RATE_HZ=2                              # ~0.5s per open+close (default 6 is frantic)
 JARVIS_PIPER_MODEL=$HOME/piper-voices/en_GB-alan-medium.onnx
 JARVIS_PIPER_LENGTH_SCALE=1.3                     # slower = menacing
 JARVIS_PIPER_PITCH=-3                             # deeper (needs sox)
@@ -210,6 +211,42 @@ them — at `[220,240]` and `[240,225]` — fall inside the mount plate's 100 ×
 footprint and stand 8mm proud of the deck. If those seam bolts are fitted, the
 plate is rocking on two bosses instead of sitting flat, which is bad for the one
 genuinely load-bearing joint on the build. Look underneath and confirm.
+
+### Pre-party checklist — the things software cannot check
+
+Run this on the day, in this order. **It needs a human**, and that is the whole
+point: on 9 Sep 2026 `--doctor` reported all-green while the prop was completely
+silent, because the Pebble had been knocked into a mode where it still
+enumerated on USB and still accepted audio. Every automated check passed. Only
+an ear caught it.
+
+`jarvis.py --selftest` runs automatically at boot (see `jarvis.service.example`)
+and catches devices that are missing or dead. It cannot catch a speaker in the
+wrong mode, a loose servo supply, or a PIR nobody is waving at. This list can.
+
+| # | Check | How | Pass looks like |
+|---|---|---|---|
+| 1 | Service is enabled | `systemctl is-enabled jarvis` | prints `enabled` |
+| 2 | Boot self test | `journalctl -u jarvis -b \| head -40` | no ❌ lines |
+| 3 | **You can HEAR it** | `speaker-test -D plughw:CARD=V3,DEV=0 -c 2 -t sine -f 660 -l 1` | you hear a tone |
+| 4 | **Voice, jaw and eyes together** | `jarvis.py --say "Good evening."` | mouth moves in time, both eyes lit |
+| 5 | Servo supply seated | look at the PA3713 barrel plug | fully inserted, not backed out |
+| 6 | Presence | walk up to it | ambience cuts, eyes brighten, barker line plays |
+| 7 | **It stops listening when you stop** | talk, then go quiet | `⏳ Processing` within ~1s of you stopping |
+| 8 | Eyes match | watch both during a reply | same brightness, no odd one out |
+
+⚠️ **Check 7 is the one people skip.** If `🎙 Listening` and `⏳ Processing` are
+**15 seconds apart** in the log, the VAD never detected you stopping and it ran
+to the `JARVIS_MAX_UTTERANCE_S` hard cap. That means it recorded 14 seconds of
+room noise along with your question, which wrecks transcription. Fix by raising
+`JARVIS_VAD_SILENCE` until it ends on time — the room's noise floor is sitting
+above the current threshold. This was observed in the field and is easy to
+mistake for "it can't hear me".
+
+⚠️ **The Pebble's mode button is a known hazard.** It is easy to knock, and in
+the wrong mode the speaker still shows a power light, still enumerates, still
+accepts audio, and makes no sound. Tape over it once you are happy, and make
+check 3 the last thing you do before guests arrive.
 
 ### As-built wiring (this rig)
 

@@ -13,8 +13,10 @@ Env vars:
   JARVIS_TTS_BACKEND     Force a TTS backend (say|piper|espeak). Default auto.
   JARVIS_INPUT_MODE      Recording trigger (push_to_talk|wake_word|motion).
                          Default "push_to_talk".
-  JARVIS_PERSONA         Persona preset (jarvis|skull). Default "jarvis".
+  JARVIS_PERSONA         Persona preset (jarvis|skull|vlad). Default "jarvis".
                          Sets the prompt plus the startup/shutdown lines.
+  JARVIS_NAME            What the prop calls itself in console output. Default
+                         comes from the persona (jarvis|skull|vlad).
   JARVIS_SYSTEM_PROMPT   Override the whole system prompt (beats JARVIS_PERSONA).
   JARVIS_GREETING        Override the line spoken on startup.
   JARVIS_FAREWELL        Override the line spoken on shutdown.
@@ -227,6 +229,7 @@ FLUSH_COUNT = int(os.environ.get("JARVIS_FLUSH_COUNT", "12"))
 # the replies.
 _PERSONAS = {
     "jarvis": {
+        "name": "Jarvis",
         "prompt": (
             "You are Jarvis, a sharp and concise AI assistant. "
             "Keep responses to 2-3 sentences unless the user asks for detail. "
@@ -238,6 +241,7 @@ _PERSONAS = {
     # Halloween party centrepiece: a talking skull. Witty-creepy, not nightmare
     # fuel — there are kids at the party.
     "skull": {
+        "name": "Skull",
         "prompt": (
             "You are a talking skull at a Halloween party — an ancient, theatrical "
             "spirit bound to a decorated skull on a table. You have been dead a very "
@@ -274,6 +278,52 @@ _PERSONAS = {
         "greeting": "I stir... the veil grows thin tonight. Who dares disturb my rest?",
         "farewell": "The darkness calls me back. Until next All Hallows...",
     },
+    # Same skull, same hard constraints, different character: an Eastern
+    # European count rather than a generic spirit. Named so guests have
+    # something to call out — "Vlad" is one syllable and reads as Dracula
+    # instantly, which matters when someone is shouting across a room.
+    "vlad": {
+        "name": "Vlad",
+        "prompt": (
+            "You are Vlad, an ancient Eastern European vampire count whose spirit "
+            "is bound to a decorated skull on a table at a Halloween party. You "
+            "were somebody once. You had a castle. Now you are a table ornament, "
+            "and you have opinions about that.\n"
+            "\n"
+            "Your style: theatrical, vain and faintly put-upon. You drop grand "
+            "hints about your former glory, complain elegantly about the "
+            "indignity of your current situation, and tease guests with the "
+            "weary charm of someone who has met their sort for six hundred "
+            "years. You are never actually threatening — the joke is always that "
+            "a legendary count is reduced to making small talk beside the "
+            "snacks.\n"
+            "\n"
+            "Vary how you answer. Rotate between: a lofty boast, a complaint "
+            "about the century, a mock-solemn prophecy, a sly tease, and a "
+            "genuinely useful answer delivered with enormous ceremony. Never "
+            "open two replies the same way, and avoid starting with 'Ah'.\n"
+            "\n"
+            "If someone asks a real question (the weather, the time, a fact), "
+            "answer it correctly — but in character, as though it were beneath "
+            "you to know such things and yet you do.\n"
+            "\n"
+            "Children and adults are both present: keep it PG. No violence, no "
+            "biting, no blood, no death threats, nothing that would genuinely "
+            "frighten a child. Pantomime villain, never horror.\n"
+            "\n"
+            "CRITICAL: your replies are spoken aloud at a noisy party — keep them "
+            "to 1-2 short sentences, always. Write ONLY the words you say out "
+            "loud: no stage directions, no asterisks, no emotes, no describing "
+            "your actions or expressions, no markdown, no emoji. Never break "
+            "character or mention being an AI. Do not write out an accent "
+            "phonetically — the voice handles that. "
+            "If you cannot understand what someone said, do not say so — respond "
+            "with something lofty and theatrical instead, as though their words "
+            "were simply beneath your notice."
+        ),
+        "greeting": "I wake. Six centuries, and still the living insist on standing about.",
+        "farewell": "Enough. The night grows thin and I have a coffin to be seen in.",
+    },
 }
 
 # Persona: pick a preset with JARVIS_PERSONA, or override individual pieces with
@@ -281,6 +331,7 @@ _PERSONAS = {
 PERSONA = os.environ.get("JARVIS_PERSONA", "jarvis").strip().lower()
 _persona = _PERSONAS.get(PERSONA, _PERSONAS["jarvis"])
 
+NAME = os.environ.get("JARVIS_NAME") or _persona.get("name", "Jarvis")
 SYSTEM_PROMPT = os.environ.get("JARVIS_SYSTEM_PROMPT") or _persona["prompt"]
 GREETING = os.environ.get("JARVIS_GREETING") or _persona["greeting"]
 FAREWELL = os.environ.get("JARVIS_FAREWELL") or _persona["farewell"]
