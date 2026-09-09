@@ -86,7 +86,11 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_LOG_MAX_TURNS` | `300` | Most recent turns rendered per page load |
 | `JARVIS_LOG_REFRESH_S` | `15` | How often the page refreshes itself |
 | `JARVIS_QUEST_ENABLED` | `false` | Turn the Elena treasure hunt on |
-| `JARVIS_QUEST_STORY` | (built in) | Stage 1 reply — Elena's story, points at the spa |
+| `JARVIS_QUEST_WORD1` | `winter` | First magic word. ⚠️ Chosen for Whisper: two syllables, common, no homophone |
+| `JARVIS_QUEST_WORD2` | `roses` | Second magic word. Must be said **after** the first |
+| `JARVIS_QUEST_FORGOTTEN` | (built in) | Reply to "what are you waiting for" — he has forgotten, and sends them for the words |
+| `JARVIS_QUEST_WRONG_ORDER` | (built in) | Both words, wrong order — a hint, never silence |
+| `JARVIS_QUEST_STORY` | (built in) | Reply to the magic words — Elena's story, points at the spa |
 | `JARVIS_QUEST_FOUND` | (built in) | Stage 2 reply — asks what is missing |
 | `JARVIS_QUEST_JAW` | (built in) | Stage 3 reply — sends them for the jaw, asks their name |
 | `JARVIS_QUEST_NAME_THANKS` | (built in) | Spoken back after a winner gives a name. `{name}` is substituted |

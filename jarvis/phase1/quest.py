@@ -47,6 +47,30 @@ QUEST_LOG = os.path.expanduser(
     os.environ.get("JARVIS_QUEST_LOG", "~/quest_log.txt")
 )
 
+# The two magic words, said in this order, unlock Elena's story.
+#
+# ⚠️ CHOSEN FOR WHISPER, not for atmosphere. Both are two syllables, both are
+# extremely common English, neither has a homophone, and nothing about them
+# sounds alike — so a half-heard one cannot be mistaken for the other. Invented
+# or Latin words are exactly what tiny.en destroys in a loud room ("Nosferatu"
+# comes back as "nose for a two"). If these change, keep those properties.
+WORD1 = os.environ.get("JARVIS_QUEST_WORD1", "winter").strip().lower()
+WORD2 = os.environ.get("JARVIS_QUEST_WORD2", "roses").strip().lower()
+
+FORGOTTEN = os.environ.get("JARVIS_QUEST_FORGOTTEN", (
+    "Waiting? For six hundred years I have been waiting, and I cannot for the "
+    "life of me remember what for. Her face is gone. Her name is gone. There "
+    "were words once — old words, the ones she used to say — and if you could "
+    "find them for me, I think I might remember."
+))
+
+# ⚠️ Never answer a near-miss with silence. Someone who found both words and got
+# nothing back has no way to know they were one swap away from solving it.
+WRONG_ORDER = os.environ.get("JARVIS_QUEST_WRONG_ORDER", (
+    "Close. Those are the words, but they do not fall in that order. "
+    "Try them the other way about."
+))
+
 STORY = os.environ.get("JARVIS_QUEST_STORY", (
     "Her name was Elena, and she was always, always cold. Six centuries ago she "
     "told me she had found a great box of hot water out in the garden, and that "
@@ -83,6 +107,11 @@ def _words(text: str) -> set:
     return set(_WORD.findall((text or "").lower()))
 
 
+def _tokens(text: str) -> list:
+    """Words in the order spoken — the set form cannot answer 'which came first'."""
+    return _WORD.findall((text or "").lower())
+
+
 def _count(text: str) -> int:
     return len(_WORD.findall((text or "").lower()))
 
@@ -94,13 +123,13 @@ def _count(text: str) -> int:
 # strand people who had already solved the puzzle.
 STAGES = (
     {
-        "name": "story",
+        "name": "forgotten",
         "groups": ({"who", "whom", "what", "whos", "whats"},
                    {"waiting", "waits", "wait", "waited", "waitin",
                     "miss", "misses", "missing", "missed",
                     "lost", "lose", "loses", "losing"}),
         "max_words": None,
-        "reply": lambda: STORY,
+        "reply": lambda: FORGOTTEN,
     },
     {
         "name": "found",
@@ -155,6 +184,17 @@ class Quest:
             name = text.strip().rstrip(".!?")
             _log("WINNER-NAME", name)
             return NAME_THANKS.format(name=name)
+
+        # Magic words first: they are two fixed tokens, so they are both the most
+        # reliable trigger and the one that must not be shadowed by a looser
+        # stage matching the same sentence.
+        toks = _tokens(text)
+        if WORD1 in toks and WORD2 in toks:
+            if toks.index(WORD1) < toks.index(WORD2):
+                _log("STAGE-WORDS", text.strip())
+                return STORY
+            _log("STAGE-WORDS-WRONG-ORDER", text.strip())
+            return WRONG_ORDER
 
         words = _words(text)
         for stage in STAGES:

@@ -21,8 +21,10 @@ class StageMatchingTests(unittest.TestCase):
         self.assertIsNotNone(reply, f"no match for {text!r}")
         self.assertTrue(reply.startswith(expected_start), reply[:60])
 
-    def test_the_key_question(self):
-        self._is("Vlad, who are you waiting for?", "Her name was Elena")
+    def test_the_key_question_admits_he_has_forgotten(self):
+        # Not the story — that needs the magic words. This is what sends guests
+        # off to find them, and it explains why he holds back at all.
+        self._is("Vlad, who are you waiting for?", "Waiting?")
 
     def test_key_question_variations_still_work(self):
         # The card is cryptic on purpose, so guests improvise rather than
@@ -36,7 +38,7 @@ class StageMatchingTests(unittest.TestCase):
                      "what are you missing"):
             with self.subTest(said=said):
                 self.q._awaiting_name_until = 0
-                self._is(said, "Her name was Elena")
+                self._is(said, "Waiting?")
 
     def test_a_loss_word_alone_does_not_trigger(self):
         # Otherwise "I lost my phone" gets a guest the whole story.
@@ -80,6 +82,38 @@ class StageMatchingTests(unittest.TestCase):
     def test_empty_transcript_is_ignored(self):
         self.assertIsNone(self.q.check(""))
         self.assertIsNone(self.q.check("   "))
+
+
+class MagicWordTests(unittest.TestCase):
+    """Two fixed words beat any amount of clever matching — which is the whole
+    reason this stage exists. These guard that it stays reliable AND that a
+    near-miss never answers with silence."""
+
+    def setUp(self):
+        self.q = quest.Quest(enabled=True)
+        quest.QUEST_LOG = "/dev/null"
+
+    def test_words_in_order_tell_the_story(self):
+        reply = self.q.check(f"{quest.WORD1} {quest.WORD2}")
+        self.assertTrue(reply.startswith("Her name was Elena"), reply[:50])
+
+    def test_words_inside_a_sentence_still_work(self):
+        reply = self.q.check(f"the magic words are {quest.WORD1} {quest.WORD2}")
+        self.assertTrue(reply.startswith("Her name was Elena"), reply[:50])
+
+    def test_wrong_order_gets_a_hint_not_silence(self):
+        # Someone who found both words and got nothing has no way to know they
+        # were one swap from solving it.
+        reply = self.q.check(f"{quest.WORD2} {quest.WORD1}")
+        self.assertIsNotNone(reply)
+        self.assertTrue(reply.startswith("Close."), reply[:50])
+
+    def test_one_word_alone_is_not_enough(self):
+        self.assertIsNone(self.q.check(quest.WORD1))
+        self.assertIsNone(self.q.check(quest.WORD2))
+
+    def test_a_magic_word_in_ordinary_chatter_does_not_fire(self):
+        self.assertIsNone(self.q.check(f"it is cold like {quest.WORD1} in here"))
 
 
 class NameCaptureTests(unittest.TestCase):
