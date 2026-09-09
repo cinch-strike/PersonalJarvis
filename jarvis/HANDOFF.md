@@ -77,6 +77,10 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_MAX_TOKENS` | `600` | Max tokens per reply |
 | `JARVIS_ENABLE_TOOLS` | `true` | Enable Claude tools (datetime/weather/web search) |
 | `JARVIS_TAVILY_KEY` | — | Optional: better web search than keyless DuckDuckGo (free key at tavily.com) |
+| `JARVIS_PERSONA` | `jarvis` | Character preset: `jarvis` \| `skull` \| `vlad`. An unknown name warns and falls back rather than failing silently |
+| `JARVIS_NAME` | from persona | What it calls itself in console output (Jarvis / Skull / Vlad) |
+| `JARVIS_JAW_RATE_HZ` | `6` | Jaw open+close cycles per second. **2** is the tuned party value; 6 reads as frantic. ⚠️ the eyes pulse at this rate too, by design |
+| `JARVIS_ENV_FILE` | `~/.config/jarvis/jarvis.env` | The env file `--doctor` and the self test scan for duplicate variables |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +
 a voice model, then `export JARVIS_PIPER_MODEL=/path/to/voice.onnx`. If piper or its
@@ -92,7 +96,9 @@ cd jarvis/phase1
 source .venv/bin/activate
 python3 jarvis.py            # run normally
 python3 jarvis.py --check    # print selected backends, no mic/model — verify a new box
-python3 jarvis.py --doctor   # full readiness probe: Python, backends, API key, SQLite, AWS
+python3 jarvis.py --doctor   # full readiness probe: config, backends, API key, SQLite, AWS
+python3 jarvis.py --selftest # EXERCISES the hardware (speaker, mic, GPIO) — runs at every boot
+python3 jarvis.py --say "..." # speak one line through voice + jaw + eyes
 python3 -m unittest discover -p 'test_*.py'   # full test suite (backends, memory, sync, doctor)
 ```
 
@@ -166,6 +172,27 @@ mounted and calibrated · skeleton mount anchored · full dry run passed.
 
 **The software side is done.** Remaining work is physical + on-site tuning.
 
+> ✅ **Vlad is live — 9 September 2026.** The persona is now `vlad`, an Eastern
+> European count rather than the unnamed `skull` spirit. Jaw rate dropped from 6
+> to 2 (about half a second per open+close; 6 read as frantic chatter), and the
+> eyes follow the same rate by design. All five devices were diagnosed
+> individually and pass. Full detail in `HALLOWEEN.md`.
+>
+> ⚠️ **Config now lives in ONE file** — `~/.config/jarvis/jarvis.env`. `.bashrc`
+> sources it rather than keeping a second copy. Duplicated variables across the
+> two files caused three faults in one evening, including a dead ElevenLabs voice
+> and a `JARVIS_INPUT_MODE` that had `wake_word` and `motion` both set with only
+> line order deciding. `--doctor` and the boot self test now FAIL on conflicting
+> duplicates.
+>
+> ⚠️ **The Pebble's ALSA volume defaults to 61% (−23.4 dB)**, independent of its
+> physical knob. Set to 100% and persisted with `sudo alsactl store` — without
+> that store it reverts on the next boot.
+>
+> ⚠️ **The Pebble has a mode button that silences it while still enumerating on
+> USB and accepting audio.** Every software check passes. Tape over it, and make
+> "can I hear a tone" the last thing you do before guests arrive.
+>
 > ✅ **Rewired and proven — 5 September 2026.** The Pi and breadboard are mounted
 > to the tray and the whole rig was rebuilt from bare boards: PIR, both USB
 > devices, power rails, capacitor, servo, both eyes, then a full conversation end
@@ -348,7 +375,9 @@ source ~/.bashrc
 
 ---
 
-*Last updated: 5 September 2026 — rig fully rewired from bare boards and proven
+*Last updated: 9 September 2026 — Vlad persona live, jaw rate 2, boot self test
+wired into systemd, config consolidated into one file, speaker volume fixed at
+100%. Previously: rig fully rewired from bare boards and proven
 end to end, including a full conversation. Audio devices now pinned by name so
 card renumbering cannot silently break the prop. Tray printed, panels joined, skull
 mount bolted at the centre; layout and cable routing settled (see `HALLOWEEN.md`). Previously: full dry run passed with everything mounted: motion, voice, MG90S jaw, LED eyes in their mounts, skeleton anchor. Software complete; remaining work is the tray/cover prints, the no-glue top half, and on-site tuning in the bathroom. ⚠️ `jarvis` is disabled at boot — re-enable before the night.*

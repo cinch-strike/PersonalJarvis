@@ -277,14 +277,33 @@ wrong mode, a loose servo supply, or a PIR nobody is waving at. This list can.
 |---|---|---|---|
 | 1 | Service is enabled | `systemctl is-enabled jarvis` | prints `enabled` |
 | 2 | Boot self test | `journalctl -u jarvis -b \| head -40` | no ❌ lines |
-| 3 | **You can HEAR it** | `speaker-test -D plughw:CARD=V3,DEV=0 -c 2 -t sine -f 660 -l 1` | you hear a tone |
-| 4 | **Voice, jaw and eyes together** | `jarvis.py --say "Good evening."` | mouth moves in time, both eyes lit |
-| 5 | Servo supply seated | look at the PA3713 barrel plug | fully inserted, not backed out |
-| 6 | Presence | walk up to it | ambience cuts, eyes brighten, barker line plays |
-| 7 | **It stops listening when you stop** | talk, then go quiet | `⏳ Processing` within ~1s of you stopping |
-| 8 | Eyes match | watch both during a reply | same brightness, no odd one out |
+| 3 | **Speaker volume** | `amixer -c V3` | PCM reads **100%**, not 61% |
+| 4 | **You can HEAR it** | `speaker-test -D plughw:CARD=V3,DEV=0 -c 2 -t sine -f 660 -l 1` | you hear a tone |
+| 5 | **Voice, jaw and eyes together** | `jarvis.py --say "Good evening."` | mouth moves in time, both eyes lit |
+| 6 | Servo supply seated | look at the PA3713 barrel plug | fully inserted, not backed out |
+| 7 | Presence | walk up to it | ambience cuts, eyes brighten, barker line plays |
+| 8 | **It stops listening when you stop** | talk, then go quiet | `⏳ Processing` within ~1s of you stopping |
+| 9 | Eyes match | watch both during a reply | same brightness, no odd one out |
 
-⚠️ **Check 7 is the one people skip.** If `🎙 Listening` and `⏳ Processing` are
+⚠️ **The speaker's ALSA volume is separate from its knob, and it defaults low.**
+It was found at **61%, which is −23.4 dB** — Vlad had been playing at a fraction
+of what the Pebble can do, with the physical knob already on maximum. Fix and
+make it stick:
+
+```bash
+amixer -c V3 sset PCM 100%
+sudo alsactl store          # ⚠️ without this it reverts to 61% on the next boot
+```
+
+`alsactl store` writes to `/var/lib/alsa/asound.state`, which ALSA restores at
+boot. Skipping it gives you a prop that is quiet again on the night with nothing
+to explain why. Power-cycle once and re-check `amixer -c V3` before guests
+arrive.
+
+Louder speech also makes the jaw's clacking relatively quieter, so tune
+`JARVIS_JAW_RATE_HZ` **after** setting the volume, not before.
+
+⚠️ **Check 8 is the one people skip.** If `🎙 Listening` and `⏳ Processing` are
 **15 seconds apart** in the log, the VAD never detected you stopping and it ran
 to the `JARVIS_MAX_UTTERANCE_S` hard cap. That means it recorded 14 seconds of
 room noise along with your question, which wrecks transcription. Fix by raising

@@ -221,7 +221,7 @@ def main() -> int:
     global whisper_model, llm_backend, tts_backend, session_id, system_prompt
     global tool_registry, jaw_servo, led_eyes, flush_detector, flush_lines
 
-    print("\n⚡ Jarvis Phase 1 starting up...")
+    print(f"\n⚡ {config.NAME} starting up...")
     print("   Loading Whisper model (first run downloads the model — be patient)...")
 
     try:
