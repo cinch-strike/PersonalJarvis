@@ -108,9 +108,25 @@ class MagicWordTests(unittest.TestCase):
         self.assertIsNotNone(reply)
         self.assertTrue(reply.startswith("Close."), reply[:50])
 
-    def test_one_word_alone_is_not_enough(self):
-        self.assertIsNone(self.q.check(quest.WORD1))
-        self.assertIsNone(self.q.check(quest.WORD2))
+    def test_one_word_alone_is_acknowledged_not_ignored(self):
+        # They will usually find one before the other. Silence here reads as
+        # "wrong word" and stops them looking for the second.
+        for word in (quest.WORD1, quest.WORD2):
+            with self.subTest(word=word):
+                reply = self.q.check(word)
+                self.assertIsNotNone(reply)
+                self.assertTrue(reply.startswith("One of them"), reply[:40])
+
+    def test_half_way_hint_does_not_leak_the_other_word(self):
+        reply = self.q.check(quest.WORD1)
+        self.assertNotIn(quest.WORD2, reply.lower())
+
+    def test_a_magic_word_in_a_long_sentence_is_chatter_not_an_attempt(self):
+        # Answering "we sat by the roses all afternoon" would hand a passer-by
+        # half the puzzle for nothing.
+        self.assertIsNone(
+            self.q.check(f"we sat by the {quest.WORD2} in the garden all afternoon")
+        )
 
     def test_a_magic_word_in_ordinary_chatter_does_not_fire(self):
         self.assertIsNone(self.q.check(f"it is cold like {quest.WORD1} in here"))

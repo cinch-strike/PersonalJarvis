@@ -57,11 +57,25 @@ QUEST_LOG = os.path.expanduser(
 WORD1 = os.environ.get("JARVIS_QUEST_WORD1", "winter").strip().lower()
 WORD2 = os.environ.get("JARVIS_QUEST_WORD2", "roses").strip().lower()
 
+# ⚠️ Must say TWO and must say WRITTEN. "If you could find them for me" reads to
+# a child as "guess the magic words", and they will stand there guessing instead
+# of going to look. Saying how many also stops someone who finds one word and
+# gets no story from concluding they were wrong.
+# Deliberately does NOT name locations: Vlad cannot know where the cards were
+# hidden, and if he did the clue cards would be decoration.
 FORGOTTEN = os.environ.get("JARVIS_QUEST_FORGOTTEN", (
     "Waiting? For six hundred years I have been waiting, and I cannot for the "
     "life of me remember what for. Her face is gone. Her name is gone. There "
-    "were words once — old words, the ones she used to say — and if you could "
-    "find them for me, I think I might remember."
+    "were two words once — the ones she used to say — and I am told they are "
+    "still written somewhere about this place. I cannot go and look. I have no "
+    "legs. But you do."
+))
+
+# ⚠️ Same reasoning as WRONG_ORDER: a guest holding one word who gets silence
+# concludes they were wrong and stops. Confirms without leaking the other word.
+HALF_WAY = os.environ.get("JARVIS_QUEST_HALF_WAY", (
+    "One of them. I feel it — something stirs, but I cannot see her yet. "
+    "There is another word. Find it."
 ))
 
 # ⚠️ Never answer a near-miss with silence. Someone who found both words and got
@@ -189,12 +203,20 @@ class Quest:
         # reliable trigger and the one that must not be shadowed by a looser
         # stage matching the same sentence.
         toks = _tokens(text)
-        if WORD1 in toks and WORD2 in toks:
+        has1, has2 = WORD1 in toks, WORD2 in toks
+        if has1 and has2:
             if toks.index(WORD1) < toks.index(WORD2):
                 _log("STAGE-WORDS", text.strip())
                 return STORY
             _log("STAGE-WORDS-WRONG-ORDER", text.strip())
             return WRONG_ORDER
+        if has1 or has2:
+            # Only when the word is offered on its own. "It is cold like winter
+            # in here" is chatter, not an attempt, and answering it would hand
+            # a passer-by half the puzzle.
+            if _count(text) <= 4:
+                _log("STAGE-WORDS-HALF", text.strip())
+                return HALF_WAY
 
         words = _words(text)
         for stage in STAGES:
