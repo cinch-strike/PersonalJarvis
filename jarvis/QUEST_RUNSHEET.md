@@ -1,6 +1,9 @@
-# The Elena Hunt — run sheet
+# V · E
 
-**For Bianca and anyone helping run or test this. Not for guests.**
+**SIX HUNDRED YEARS WAITING**
+
+*The Elena Hunt — run sheet. For Bianca and anyone helping run or test this.
+Not for guests.*
 
 Print it, keep it in a pocket. Everything Vlad says is below word for word, so
 you can tell "he did not understand" from "that is what he is supposed to say".
