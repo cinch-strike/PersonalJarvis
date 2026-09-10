@@ -239,6 +239,47 @@ class NameCaptureTests(unittest.TestCase):
         self.assertIsNone(self.q.check("hello there"))
 
 
+class RepeatTests(unittest.TestCase):
+    """Asking Vlad to say it again must never reach the LLM.
+
+    Claude does not know the quest exists, so an improvised "repeat" could
+    invent a location that is not in the puzzle and send a child to it.
+    """
+
+    def setUp(self):
+        self.q = quest.Quest(enabled=True)
+        quest.QUEST_LOG = "/dev/null"
+
+    def test_common_ways_of_asking_all_work(self):
+        self.q.check(f"{quest.WORD1} {quest.WORD2}")
+        for said in ("say that again", "what did you say", "can you repeat that",
+                     "sorry what was that", "again please", "repeat"):
+            with self.subTest(said=said):
+                reply = self.q.check(said)
+                self.assertIsNotNone(reply)
+                self.assertIn("Elena", reply)
+
+    def test_repeat_replays_whichever_stage_was_last(self):
+        self.q.check("the jaw")
+        self.assertIn("Her jaw", self.q.check("say that again"))
+
+    def test_nothing_to_repeat_falls_through_to_the_llm(self):
+        # A guest who has triggered nothing gets a normal conversation.
+        self.assertIsNone(quest.Quest(enabled=True).check("say that again"))
+
+    def test_the_window_expires(self):
+        # Otherwise a group walking up cold and saying "say that again" is
+        # handed whatever stage the PREVIOUS group had reached.
+        self.q.check(f"{quest.WORD1} {quest.WORD2}")
+        self.q._last_line_until = 0.0
+        self.assertIsNone(self.q.check("say that again"))
+
+    def test_a_long_sentence_containing_again_is_not_a_repeat_request(self):
+        self.q.check(f"{quest.WORD1} {quest.WORD2}")
+        self.assertIsNone(
+            self.q.check("I will never come to this party again after tonight"))
+
+
 class DisabledTests(unittest.TestCase):
     def test_disabled_quest_never_intercepts(self):
         q = quest.Quest(enabled=False)

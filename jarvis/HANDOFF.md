@@ -96,6 +96,8 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_QUEST_JAW` | (built in) | Stage 3 reply — sends them for the jaw, asks their name |
 | `JARVIS_QUEST_NAME_THANKS` | (built in) | Spoken back after a winner gives a name. `{name}` is substituted |
 | `JARVIS_QUEST_NAME_WINDOW_S` | `60` | How long after stage 3 the next utterance counts as a name |
+| `JARVIS_QUEST_REPEAT_WINDOW_S` | `180` | How long a scripted line stays repeatable via "say that again" |
+| `JARVIS_QUEST_REPEAT_PREFIX` | (built in) | Spoken before a repeated line |
 | `JARVIS_QUEST_LOG` | `~/quest_log.txt` | One line per stage reached and per winner name, with timestamps |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +

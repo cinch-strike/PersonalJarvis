@@ -151,6 +151,23 @@ NAME_THANKS = os.environ.get("JARVIS_QUEST_NAME_THANKS", (
     "without them."
 ))
 
+# Asking Vlad to say it again must NOT reach the LLM. Claude does not know the
+# quest exists, so it would improvise — confidently — and could send a child to
+# a location that is not in the puzzle at all. Elena's story is 75 words in a
+# loud room full of children; being asked to repeat it is the expected case,
+# not an edge case.
+REPEAT_ANY = {"again", "repeat", "repeated"}
+REPEAT_MAX_WORDS = 8
+
+# How long a scripted line stays repeatable. Bounded because the last line is
+# shared state in an otherwise stateless design: without a window, a group that
+# walks up cold and says "say that again" would be handed whatever stage the
+# PREVIOUS group had reached.
+REPEAT_WINDOW_S = float(os.environ.get("JARVIS_QUEST_REPEAT_WINDOW_S", "180"))
+
+REPEAT_PREFIX = os.environ.get("JARVIS_QUEST_REPEAT_PREFIX",
+                               "Again? Very well. Listen this time. ")
+
 _WORD = re.compile(r"[a-z0-9]+")
 
 
@@ -237,21 +254,42 @@ class Quest:
     def __init__(self, enabled: bool = None):
         self.enabled = QUEST_ENABLED if enabled is None else enabled
         self._awaiting_name_until = 0.0
+        self._last_line = None
+        self._last_line_until = 0.0
 
     def _awaiting_name(self) -> bool:
         return time.monotonic() < self._awaiting_name_until
+
+    def _remember(self, line: str) -> str:
+        self._last_line, self._last_line_until = line, time.monotonic() + REPEAT_WINDOW_S
+        return line
+
+    def _wants_repeat(self, text: str) -> bool:
+        if _count(text) > REPEAT_MAX_WORDS:
+            return False
+        words = _words(text)
+        if REPEAT_ANY & words:
+            return True
+        # "what did you say", "what was that"
+        return bool({"what"} & words and {"say", "said", "that"} & words)
 
     def check(self, text: str):
         """Scripted reply for this utterance, or None to let the LLM answer."""
         if not self.enabled or not (text or "").strip():
             return None
 
+        # Before anything else: a repeat request must never reach the LLM.
+        if (self._last_line and time.monotonic() < self._last_line_until
+                and self._wants_repeat(text)):
+            _log("REPEAT", text.strip())
+            return REPEAT_PREFIX + self._last_line
+
         # A name is only expected in the window right after the jaw stage.
         if self._awaiting_name():
             self._awaiting_name_until = 0.0
             name = text.strip().rstrip(".!?")
             _log("WINNER-NAME", name)
-            return NAME_THANKS.format(name=name)
+            return self._remember(NAME_THANKS.format(name=name))
 
         # Magic words first: they are two fixed tokens, so they are both the most
         # reliable trigger and the one that must not be shadowed by a looser
@@ -265,16 +303,16 @@ class Quest:
         if has1 and has2:
             if i1 < i2:
                 _log("STAGE-WORDS", text.strip())
-                return _story()
+                return self._remember(_story())
             _log("STAGE-WORDS-WRONG-ORDER", text.strip())
-            return WRONG_ORDER
+            return self._remember(WRONG_ORDER)
         if has1 or has2:
             # Fire when it reads as an attempt: either offered bare, or carrying
             # a word like "keyword" or "magic" that says they are guessing.
             # Chatter that merely mentions roses gets nothing.
             if _count(text) <= BARE_MAX_WORDS or (GUESS_MARKERS & _words(text)):
                 _log("STAGE-WORDS-HALF", text.strip())
-                return HALF_WAY
+                return self._remember(HALF_WAY)
 
         words = _words(text)
         for stage in STAGES:
@@ -285,5 +323,5 @@ class Quest:
             _log(f"STAGE-{stage['name'].upper()}", text.strip())
             if stage["name"] == "jaw":
                 self._awaiting_name_until = time.monotonic() + NAME_WINDOW_S
-            return stage["reply"]()
+            return self._remember(stage["reply"]())
         return None

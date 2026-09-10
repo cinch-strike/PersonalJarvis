@@ -137,6 +137,21 @@ the log with a timestamp.
 > living. Now go, and do not forget the words — they will not know you without
 > them.
 
+### Any step — "say that again"
+
+Guests can ask Vlad to repeat whatever he last told them. Works for any stage.
+Accepted: *say that again*, *what did you say*, *can you repeat that*, *sorry
+what was that*, *again*.
+
+> Again? Very well. Listen this time. [the same line, word for word]
+
+⚠️ **Encourage this.** Elena's story is long, the room is loud, and children
+will miss half of it. It replays the exact wording rather than a summary, so
+nothing gets garbled on the way through.
+
+It expires after a few minutes, so a group arriving cold cannot use it to hear
+a stage they have not reached.
+
 ---
 
 ## Your job at step 8
