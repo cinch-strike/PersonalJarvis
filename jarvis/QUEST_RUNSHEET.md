@@ -33,30 +33,30 @@ adult must not let on.
 
 ### Opening card — leads them to Vlad
 
-> One here has waited longer than these walls,
-> who owns no crown, no castle and no halls.
-> He will not raise it first. He is too proud.
-> But he will answer — if you ask aloud.
-> Not what he was, and not what he became.
-> Ask what he waits for. He'll tell you a name.
+> One here has waited longer than these walls,  
+> who owns no crown, no castle and no halls.  
+> He will not raise it first. He is too proud.  
+> But he will answer — if you ask aloud.  
+> Not what he was, and not what he became.  
+> Ask what he waits for. He'll tell you a name.  
 
 ### Hidden riddle 1 — answer: **WINTER**
 
-> I strip the trees and starve the light,
-> I bring the coat, I bring the night.
-> Frost is my breath, dark comes at four —
-> name the season I stand for.
-> Speak me first, before you're through —
-> the second word depends on you.
+> I strip the trees and starve the light,  
+> I bring the coat, I bring the night.  
+> Frost is my breath, dark comes at four —  
+> name the season I stand for.  
+> Speak me first, before you're through —  
+> the second word depends on you.  
 
 ### Hidden riddle 2 — answer: **ROSES**
 
-> I guard my gold with thorns for spite,
-> I'm sent for love, I'm laid in white.
-> In gardens grown, on graves I lay —
-> name the bloom that speaks this way.
-> But hold your tongue till the cold's been said —
-> she spoke of frost before the red.
+> I guard my gold with thorns for spite,  
+> I'm sent for love, I'm laid in white.  
+> In gardens grown, on graves I lay —  
+> name the bloom that speaks this way.  
+> But hold your tongue till the cold's been said —  
+> she spoke of frost before the red.  
 
 Both riddles tell them the order. That is deliberate.
 
