@@ -61,7 +61,7 @@ def _forms(raw: str) -> list:
     return [w.strip().lower() for w in raw.split(",") if w.strip()]
 
 
-WORD1_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD1", "winter"))
+WORD1_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD1", "winter,wintertime"))
 WORD2_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD2", "roses,rose"))
 # ⚠️ These two are for DISPLAY only — what Vlad echoes back. Matching uses the
 # _FORMS lists above. Change one without the other and the prop will recognise
@@ -123,10 +123,17 @@ FOUND = os.environ.get("JARVIS_QUEST_FOUND", (
     "is it not? Tell me what."
 ))
 
+# ⚠️ Deliberately does NOT name Donnie. Working out WHO is the last gate of the
+# puzzle, and guests are meant to try several adults. Note "their hands", not
+# "his" — a gendered pronoun would eliminate half the adults at the party and
+# retire Bianca as a decoy in one word.
+# ⚠️ The words must be spoken at the handover too, so a guest who simply finds
+# the skull and jaw without solving anything cannot walk up and win.
 JAW = os.environ.get("JARVIS_QUEST_JAW", (
-    "Her jaw! She cannot speak a word to me without it. I saw something pale on "
-    "the table in the middle of the room where everyone gathers. Bring me both — "
-    "carry them to Donnie — and Elena and I shall be whole again. "
+    "Her jaw! She cannot speak to me without it. I saw something pale on the "
+    "table in the room where everyone gathers. Bring them both to my own blood — "
+    "six hundred years on, one of my line still walks among you tonight. Place "
+    "them in their hands and say the words, or they will not know you. "
     "Now tell me your name, so that I may curse it kindly."
 ))
 
