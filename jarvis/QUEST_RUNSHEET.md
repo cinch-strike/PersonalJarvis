@@ -121,12 +121,12 @@ saw / there.
 purpose, so ordinary chatter cannot give the answer away.
 
 > Her jaw! She cannot speak to me without it. I saw something pale on the table
-> in the room where everyone gathers. Bring them both to my own blood — six
-> hundred years on, one of my line still walks among you tonight. Place them in
-> their hands and say the words, or they will not know you. Now tell me your
-> name, so that I may curse it kindly.
+> in the room where everyone gathers. Bring them both, and find my descendant in
+> this house — six hundred years on, one of my family still walks among you
+> tonight. Place them in their hands and say the words, or they will not know
+> you. Now tell me your name, so that I may curse it kindly.
 
-**"The room where everyone gathers" = the lounge. "My own blood" = Donnie.**
+**"The room where everyone gathers" = the lounge. "My descendant" = Donnie.**
 
 ### Step 7b — they give their name
 

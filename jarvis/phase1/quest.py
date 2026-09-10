@@ -127,13 +127,16 @@ FOUND = os.environ.get("JARVIS_QUEST_FOUND", (
 # puzzle, and guests are meant to try several adults. Note "their hands", not
 # "his" — a gendered pronoun would eliminate half the adults at the party and
 # retire Bianca as a decoy in one word.
+# Says "my descendant", not "my own blood": the latter reads well but a child
+# has to unpack it, and this is the instruction the whole last stage depends on.
 # ⚠️ The words must be spoken at the handover too, so a guest who simply finds
 # the skull and jaw without solving anything cannot walk up and win.
 JAW = os.environ.get("JARVIS_QUEST_JAW", (
     "Her jaw! She cannot speak to me without it. I saw something pale on the "
-    "table in the room where everyone gathers. Bring them both to my own blood — "
-    "six hundred years on, one of my line still walks among you tonight. Place "
-    "them in their hands and say the words, or they will not know you. "
+    "table in the room where everyone gathers. Bring them both, and find my "
+    "descendant in this house — six hundred years on, one of my family still "
+    "walks among you tonight. Place them in their hands and say the words, or "
+    "they will not know you. "
     "Now tell me your name, so that I may curse it kindly."
 ))
 
