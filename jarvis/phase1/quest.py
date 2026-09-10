@@ -54,8 +54,17 @@ QUEST_LOG = os.path.expanduser(
 # sounds alike — so a half-heard one cannot be mistaken for the other. Invented
 # or Latin words are exactly what tiny.en destroys in a loud room ("Nosferatu"
 # comes back as "nose for a two"). If these change, keep those properties.
-WORD1 = os.environ.get("JARVIS_QUEST_WORD1", "winter").strip().lower()
-WORD2 = os.environ.get("JARVIS_QUEST_WORD2", "roses").strip().lower()
+# Comma-separated: every form is accepted, the FIRST is the one Vlad echoes
+# back. Bianca's clue asks guests to "name the bloom", singular, so they will
+# say "rose" — accepting only "roses" would fail everyone who solved it.
+def _forms(raw: str) -> list:
+    return [w.strip().lower() for w in raw.split(",") if w.strip()]
+
+
+WORD1_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD1", "winter"))
+WORD2_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD2", "roses,rose"))
+WORD1 = WORD1_FORMS[0]          # canonical, used in the recognition line
+WORD2 = WORD2_FORMS[0]
 
 # ⚠️ Must say TWO and must say WRITTEN. "If you could find them for me" reads to
 # a child as "guess the magic words", and they will stand there guessing instead
@@ -234,9 +243,13 @@ class Quest:
         # reliable trigger and the one that must not be shadowed by a looser
         # stage matching the same sentence.
         toks = _tokens(text)
-        has1, has2 = WORD1 in toks, WORD2 in toks
+        # Earliest position of any accepted form, so "winter rose" and
+        # "winter roses" behave identically.
+        i1 = min((toks.index(w) for w in WORD1_FORMS if w in toks), default=None)
+        i2 = min((toks.index(w) for w in WORD2_FORMS if w in toks), default=None)
+        has1, has2 = i1 is not None, i2 is not None
         if has1 and has2:
-            if toks.index(WORD1) < toks.index(WORD2):
+            if i1 < i2:
                 _log("STAGE-WORDS", text.strip())
                 return _story()
             _log("STAGE-WORDS-WRONG-ORDER", text.strip())

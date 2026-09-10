@@ -131,6 +131,27 @@ class MagicWordTests(unittest.TestCase):
         finally:
             quest.STORY = orig
 
+    def test_singular_and_plural_both_work(self):
+        # Bianca's clue asks guests to "name the bloom", singular, so they say
+        # "rose". Accepting only the plural would fail everyone who solved it,
+        # and no wording of the clue can control what someone actually says.
+        for second in quest.WORD2_FORMS:
+            with self.subTest(second=second):
+                q = quest.Quest(enabled=True)
+                reply = q.check(f"{quest.WORD1} {second}")
+                self.assertIn("Elena", reply)
+
+    def test_either_form_alone_gets_the_half_way_hint(self):
+        for second in quest.WORD2_FORMS:
+            with self.subTest(second=second):
+                q = quest.Quest(enabled=True)
+                self.assertTrue(q.check(second).startswith("One of them"))
+
+    def test_order_is_checked_across_forms(self):
+        q = quest.Quest(enabled=True)
+        reply = q.check(f"{quest.WORD2_FORMS[-1]} {quest.WORD1}")
+        self.assertTrue(reply.startswith("Close."), reply[:40])
+
     def test_wrong_order_gets_a_hint_not_silence(self):
         # Someone who found both words and got nothing has no way to know they
         # were one swap from solving it.
