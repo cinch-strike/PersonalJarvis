@@ -95,11 +95,41 @@ class MagicWordTests(unittest.TestCase):
 
     def test_words_in_order_tell_the_story(self):
         reply = self.q.check(f"{quest.WORD1} {quest.WORD2}")
-        self.assertTrue(reply.startswith("Her name was Elena"), reply[:50])
+        self.assertIn("Elena", reply)
 
     def test_words_inside_a_sentence_still_work(self):
         reply = self.q.check(f"the magic words are {quest.WORD1} {quest.WORD2}")
-        self.assertTrue(reply.startswith("Her name was Elena"), reply[:50])
+        self.assertIn("Elena", reply)
+
+    def test_the_story_echoes_the_words_back(self):
+        # Without the moment of recognition it jumps straight into the story
+        # and lands flat — the payoff needs a beat.
+        reply = self.q.check(f"{quest.WORD1} {quest.WORD2}")
+        self.assertTrue(reply.lower().startswith(quest.WORD1), reply[:40])
+        self.assertIn(quest.WORD2, reply.lower())
+
+    def test_story_placeholders_track_a_word_change(self):
+        # If the magic words change, the recognition line must follow them.
+        orig1, orig2 = quest.WORD1, quest.WORD2
+        try:
+            quest.WORD1, quest.WORD2 = "amber", "willow"
+            reply = quest.Quest(enabled=True).check("amber willow")
+            self.assertIn("amber willow", reply.lower())
+            self.assertNotIn(orig1, reply.lower())
+        finally:
+            quest.WORD1, quest.WORD2 = orig1, orig2
+
+    def test_a_custom_story_without_placeholders_is_left_alone(self):
+        # A formatting error must never be what stops the prop answering at the
+        # most important moment of the puzzle.
+        orig = quest.STORY
+        try:
+            quest.STORY = "no placeholders here at all"
+            self.assertEqual(quest._story(), "no placeholders here at all")
+            quest.STORY = "a stray { brace"
+            self.assertEqual(quest._story(), "a stray { brace")
+        finally:
+            quest.STORY = orig
 
     def test_wrong_order_gets_a_hint_not_silence(self):
         # Someone who found both words and got nothing has no way to know they

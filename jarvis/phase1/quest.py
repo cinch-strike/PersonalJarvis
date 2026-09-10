@@ -95,11 +95,15 @@ WRONG_ORDER = os.environ.get("JARVIS_QUEST_WRONG_ORDER", (
     "Try them the other way about."
 ))
 
+# {word1} and {word2} are substituted from the config above, so the moment of
+# recognition stays correct if the magic words ever change. A custom string
+# without placeholders works fine — substitution is simply a no-op.
 STORY = os.environ.get("JARVIS_QUEST_STORY", (
-    "Her name was Elena, and she was always, always cold. Six centuries ago she "
-    "told me she had found a great box of hot water out in the garden, and that "
-    "she would warm her bones for just a moment. She never came back. If you are "
-    "braver than I am, go and look."
+    "{word1} {word2}... {word1} {word2}. Yes. Yes, I can see her now, after all "
+    "these years — thank you for that, truly. Her name was Elena, and she was "
+    "always, always cold. Six centuries ago she told me she had found a great "
+    "box of hot water out in the garden, and that she would warm her bones for "
+    "just a moment. She never came back. If you are braver than I am, go and look."
 ))
 
 FOUND = os.environ.get("JARVIS_QUEST_FOUND", (
@@ -180,6 +184,19 @@ STAGES = (
 )
 
 
+def _story() -> str:
+    """The story with the magic words filled in.
+
+    Falls back to the raw string if a custom JARVIS_QUEST_STORY contains a
+    stray brace — a formatting error must never be what stops the prop from
+    answering at the most important moment of the puzzle.
+    """
+    try:
+        return STORY.format(word1=WORD1, word2=WORD2)
+    except (KeyError, IndexError, ValueError):
+        return STORY
+
+
 def _log(event: str, detail: str = "") -> None:
     """Append one line to the quest log. Never raises — a logging failure must
     not stop the prop mid-conversation."""
@@ -221,7 +238,7 @@ class Quest:
         if has1 and has2:
             if toks.index(WORD1) < toks.index(WORD2):
                 _log("STAGE-WORDS", text.strip())
-                return STORY
+                return _story()
             _log("STAGE-WORDS-WRONG-ORDER", text.strip())
             return WRONG_ORDER
         if has1 or has2:
