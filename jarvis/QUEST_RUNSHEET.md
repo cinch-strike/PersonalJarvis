@@ -20,10 +20,12 @@ you can tell "he did not understand" from "that is what he is supposed to say".
 | 5 | The garden | Finds the jawless skull in the **spa pool** |
 | 6 | At Vlad | Says they found a skull → he asks what is missing |
 | 7 | At Vlad | Says **"the jaw"** → sent to the lounge table, asked their name |
-| 8 | Anywhere | Brings skull **and** jaw to **Donnie**, and says **"winter roses"** |
+| 8 | Anywhere | **Must still work out who the descendant is.** Brings skull **and** jaw to them and says **"winter roses"**. Only **Donnie** replies — with congratulations |
 
-**Only step 8 wins it.** Objects without the words is not a win. Words without
-the objects is not a win.
+**Only step 8 wins it, and it has three parts:** the right person, both objects,
+and the words. Objects without the words is not a win. Words without the objects
+is not a win. Either of those handed to the wrong adult is not a win — and that
+adult must not let on.
 
 ---
 
