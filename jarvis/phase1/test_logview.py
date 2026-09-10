@@ -60,6 +60,39 @@ class HtmlEscapingTests(unittest.TestCase):
         self.assertIn("Nothing recorded yet", logview.render_html([]))
 
 
+class OrderingTests(unittest.TestCase):
+    """Newest first, but each question still above its own answer. Simply
+    reversing the turns satisfies the first and destroys the second."""
+
+    def _page_order(self, turns):
+        import re
+        return re.findall(r"<p>([^<]+)</p>", logview.render_html(turns))
+
+    def test_newest_exchange_appears_first(self):
+        order = self._page_order([
+            _turn(1, "user", "first question"),
+            _turn(1, "assistant", "first answer"),
+            _turn(1, "user", "second question"),
+            _turn(1, "assistant", "second answer"),
+        ])
+        self.assertEqual(
+            order, ["second question", "second answer",
+                    "first question", "first answer"])
+
+    def test_a_question_without_a_reply_still_renders(self):
+        # The prop can be mid-think when the page loads.
+        order = self._page_order([_turn(1, "user", "hello?")])
+        self.assertEqual(order, ["hello?"])
+
+    def test_grouping_starts_a_new_exchange_on_each_guest_line(self):
+        groups = logview.group_exchanges([
+            _turn(1, "user", "a"), _turn(1, "assistant", "b"),
+            _turn(1, "user", "c"),
+        ])
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(len(groups[0]), 2)
+
+
 class TokenGuardTests(unittest.TestCase):
     def test_serve_refuses_without_a_token(self):
         # Fail closed: guests share the WiFi, and this page is the whole night.

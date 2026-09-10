@@ -132,6 +132,35 @@ class MagicWordTests(unittest.TestCase):
         self.assertIsNone(self.q.check(f"it is cold like {quest.WORD1} in here"))
 
 
+class FieldTranscriptRegressionTests(unittest.TestCase):
+    """Sentences taken verbatim from the first live test, both of which failed.
+
+    Kept as literal strings rather than tidied paraphrases — the point is that
+    real speech through Whisper does not look like the phrases anyone drafts.
+    """
+
+    def setUp(self):
+        self.q = quest.Quest(enabled=True)
+        quest.QUEST_LOG = "/dev/null"
+
+    def test_looking_for_reaches_the_forgotten_stage(self):
+        # Only "waiting/miss/lost" were listed; "looking" is just as natural.
+        reply = self.q.check("Do you know who what you're looking for?")
+        self.assertIsNotNone(reply)
+        self.assertTrue(reply.startswith("Waiting?"), reply[:40])
+
+    def test_a_nine_word_guess_still_counts_as_a_guess(self):
+        # Failed on a four-word cutoff. Length cannot separate a guess from
+        # chatter; a marker word like "keyword" can.
+        reply = self.q.check("Okay, I think I know the keyword, it's winter.")
+        self.assertIsNotNone(reply)
+        self.assertTrue(reply.startswith("One of them"), reply[:40])
+
+    def test_chatter_of_the_same_length_still_stays_quiet(self):
+        self.assertIsNone(
+            self.q.check("we sat by the roses in the garden all afternoon"))
+
+
 class NameCaptureTests(unittest.TestCase):
     def setUp(self):
         self.q = quest.Quest(enabled=True)

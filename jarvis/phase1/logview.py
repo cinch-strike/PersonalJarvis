@@ -60,6 +60,26 @@ def render_markdown(turns) -> str:
     return "\n".join(out) + "\n"
 
 
+def group_exchanges(turns) -> list:
+    """Group turns into exchanges: a guest line plus the reply it drew.
+
+    Needed because "newest first" and "readable" pull against each other. Simply
+    reversing the turns puts every answer above its own question, which is
+    unreadable. Reversing EXCHANGES keeps each question above its answer while
+    still putting the latest activity at the top, so nobody has to scroll a
+    whole evening on a phone.
+    """
+    exchanges, current = [], []
+    for t in turns:
+        if t["role"] == "user" and current:
+            exchanges.append(current)
+            current = []
+        current.append(t)
+    if current:
+        exchanges.append(current)
+    return exchanges
+
+
 def render_html(turns) -> str:
     """One page, readable on a phone, no external anything.
 
@@ -67,18 +87,18 @@ def render_html(turns) -> str:
     plus whatever the model wrote back, so it is untrusted text by definition.
     """
     rows = []
-    session = None
-    for t in turns:
-        if t["session_id"] != session:
-            session = t["session_id"]
-            rows.append(f'<h2>Session {html.escape(str(session))}</h2>')
-        who = _SPEAKER.get(t["role"], t["role"])
-        cls = "guest" if t["role"] == "user" else "vlad"
-        rows.append(
-            f'<div class="turn {cls}"><span class="who">{html.escape(who)}</span>'
-            f'<span class="time">{html.escape(t["created_at"])}</span>'
-            f'<p>{html.escape(t["content"])}</p></div>'
-        )
+    # Newest exchange first — see group_exchanges for why not simply reversed.
+    for exchange in reversed(group_exchanges(turns)):
+        rows.append('<div class="exchange">')
+        for t in exchange:
+            who = _SPEAKER.get(t["role"], t["role"])
+            cls = "guest" if t["role"] == "user" else "vlad"
+            rows.append(
+                f'<div class="turn {cls}"><span class="who">{html.escape(who)}</span>'
+                f'<span class="time">{html.escape(t["created_at"])}</span>'
+                f'<p>{html.escape(t["content"])}</p></div>'
+            )
+        rows.append("</div>")
     body = "\n".join(rows) or "<p class='empty'>Nothing recorded yet.</p>"
     name = html.escape(config.NAME)
     return f"""<!doctype html>
@@ -103,10 +123,13 @@ def render_html(turns) -> str:
   .turn.guest .who {{ color:#8fb8de; }}
   .time {{ font-size:.72rem; color:#6c6680; }}
   p {{ margin:.35rem 0 0; }}
+  .exchange {{ margin:0 0 1.4rem; padding-bottom:.4rem;
+               border-bottom:1px solid #241f30; }}
   .empty {{ color:#7d7791; }}
 </style></head>
 <body>
 <h1>{name} — transcript</h1>
+<p class="time">newest first · refreshes every {REFRESH_S}s</p>
 {body}
 </body></html>"""
 

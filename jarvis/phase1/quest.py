@@ -71,6 +71,16 @@ FORGOTTEN = os.environ.get("JARVIS_QUEST_FORGOTTEN", (
     "legs. But you do."
 ))
 
+# Words that mark an utterance as an ATTEMPT rather than chatter. Needed because
+# length alone does not separate them: "okay I think I know the keyword it's
+# winter" is nine words and is obviously a guess, while "we sat by the roses in
+# the garden all afternoon" is nine words and obviously is not.
+GUESS_MARKERS = {"word", "words", "keyword", "keywords", "magic", "spell",
+                 "secret", "code", "password", "phrase", "say", "think", "guess"}
+
+# How short an utterance can be and still count as offering a word bare.
+BARE_MAX_WORDS = 5
+
 # ⚠️ Same reasoning as WRONG_ORDER: a guest holding one word who gets silence
 # concludes they were wrong and stops. Confirms without leaking the other word.
 HALF_WAY = os.environ.get("JARVIS_QUEST_HALF_WAY", (
@@ -141,7 +151,11 @@ STAGES = (
         "groups": ({"who", "whom", "what", "whos", "whats"},
                    {"waiting", "waits", "wait", "waited", "waitin",
                     "miss", "misses", "missing", "missed",
-                    "lost", "lose", "loses", "losing"}),
+                    "lost", "lose", "loses", "losing",
+                    # "what are you LOOKING for" is at least as natural as
+                    # "waiting for", and missed entirely in the first field test.
+                    "looking", "look", "looks", "seeking", "seek",
+                    "searching", "search", "after", "expecting", "want"}),
         "max_words": None,
         "reply": lambda: FORGOTTEN,
     },
@@ -211,10 +225,10 @@ class Quest:
             _log("STAGE-WORDS-WRONG-ORDER", text.strip())
             return WRONG_ORDER
         if has1 or has2:
-            # Only when the word is offered on its own. "It is cold like winter
-            # in here" is chatter, not an attempt, and answering it would hand
-            # a passer-by half the puzzle.
-            if _count(text) <= 4:
+            # Fire when it reads as an attempt: either offered bare, or carrying
+            # a word like "keyword" or "magic" that says they are guessing.
+            # Chatter that merely mentions roses gets nothing.
+            if _count(text) <= BARE_MAX_WORDS or (GUESS_MARKERS & _words(text)):
                 _log("STAGE-WORDS-HALF", text.strip())
                 return HALF_WAY
 
