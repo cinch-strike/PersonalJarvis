@@ -142,9 +142,13 @@ JAW = os.environ.get("JARVIS_QUEST_JAW", (
 # be filed as a winner.
 NAME_WINDOW_S = float(os.environ.get("JARVIS_QUEST_NAME_WINDOW_S", "60"))
 
+# ⚠️ Spoken AFTER the jaw instruction, so it must not send them back a step.
+# The earlier version ended "go, fetch her jaw", which was written before the
+# handover stage existed and contradicted the line immediately before it.
 NAME_THANKS = os.environ.get("JARVIS_QUEST_NAME_THANKS", (
     "{name}. I shall remember it, which is more than I can say for most of the "
-    "living. Go — fetch her jaw."
+    "living. Now go, and do not forget the words — they will not know you "
+    "without them."
 ))
 
 _WORD = re.compile(r"[a-z0-9]+")
