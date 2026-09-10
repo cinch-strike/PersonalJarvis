@@ -63,7 +63,10 @@ def _forms(raw: str) -> list:
 
 WORD1_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD1", "winter"))
 WORD2_FORMS = _forms(os.environ.get("JARVIS_QUEST_WORD2", "roses,rose"))
-WORD1 = WORD1_FORMS[0]          # canonical, used in the recognition line
+# ⚠️ These two are for DISPLAY only — what Vlad echoes back. Matching uses the
+# _FORMS lists above. Change one without the other and the prop will recognise
+# words it does not repeat, or repeat words it does not recognise.
+WORD1 = WORD1_FORMS[0]
 WORD2 = WORD2_FORMS[0]
 
 # ⚠️ Must say TWO and must say WRITTEN. "If you could find them for me" reads to

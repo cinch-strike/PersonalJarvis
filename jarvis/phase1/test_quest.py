@@ -110,14 +110,19 @@ class MagicWordTests(unittest.TestCase):
 
     def test_story_placeholders_track_a_word_change(self):
         # If the magic words change, the recognition line must follow them.
-        orig1, orig2 = quest.WORD1, quest.WORD2
+        orig = (quest.WORD1, quest.WORD2, quest.WORD1_FORMS, quest.WORD2_FORMS)
         try:
+            # Both must move together: the _FORMS drive matching, the bare names
+            # drive what Vlad echoes back.
+            quest.WORD1_FORMS, quest.WORD2_FORMS = ["amber"], ["willow"]
             quest.WORD1, quest.WORD2 = "amber", "willow"
             reply = quest.Quest(enabled=True).check("amber willow")
+            self.assertIsNotNone(reply)
             self.assertIn("amber willow", reply.lower())
-            self.assertNotIn(orig1, reply.lower())
+            self.assertNotIn(orig[0], reply.lower())
         finally:
-            quest.WORD1, quest.WORD2 = orig1, orig2
+            (quest.WORD1, quest.WORD2,
+             quest.WORD1_FORMS, quest.WORD2_FORMS) = orig
 
     def test_a_custom_story_without_placeholders_is_left_alone(self):
         # A formatting error must never be what stops the prop answering at the
