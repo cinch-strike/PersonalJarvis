@@ -261,6 +261,111 @@ Anything it prints is duplicated. Empty output is what you want. systemd's
 error — it just quietly means something other than what you read at the top of
 the file.
 
+### Shutdown button — turn the prop off without a laptop
+
+⚠️ **Never just pull the plug.** The Pi writes to the SD card constantly, and
+Jarvis adds to it on every turn. Cutting power mid-write corrupts the card, and
+the failure is total: it will not boot and you reflash from scratch. Plenty of
+people get away with it for years; the night it bites is not the night you want.
+
+Raspberry Pi OS has an overlay for this. One config line, one momentary button,
+two wires.
+
+```bash
+echo "dtoverlay=gpio-shutdown" | sudo tee -a /boot/firmware/config.txt
+sudo reboot
+```
+
+(On older OS versions the file is `/boot/config.txt` rather than
+`/boot/firmware/config.txt`.)
+
+Wire a momentary push button between:
+
+| Button leg | Pi pin |
+|---|---|
+| one side | **5** (GPIO3) |
+| other side | **9** (GND) |
+
+Both are free on this rig — the used pins are 2, 6, 11, 12, 14 and 16 — and 5
+and 9 sit next to each other on the header.
+
+**The bonus is the good half:** GPIO3 is also the wake pin. Once the Pi is
+halted, pressing the same button powers it back on. It becomes a real on/off
+button for the whole prop and you never touch the plug again.
+
+⚠️ Decide where the button lives **before** gluing more of the loom down. A
+shutdown button you cannot reach once the covers are on is no use.
+
+**Alternatives if you would rather not add hardware:**
+
+- An SSH app on a phone (Termius on iOS/Android). Save the connection once and
+  shutting down is two taps.
+- A timed shutdown, so the prop puts itself to bed whether or not anyone
+  remembers: `sudo shutdown -h 01:00`, cancel with `sudo shutdown -c`.
+
+**Whatever you use: wait for the green activity LED to stop blinking before
+unplugging.** The red LED only means power and stays on regardless. Green
+blinking means the card is still being written to.
+
+---
+
+### SD card backup — no longer optional
+
+This card is now hard to rebuild. It holds the piper voice and its model, the
+Whisper models, `jarvis.env` with the Anthropic and ElevenLabs keys, the saved
+ALSA volume state, both systemd units, and the venv. Reconstructing that in the
+week before the party would be a genuinely bad few hours.
+
+An image turns a dead card from a disaster into a twenty-minute reflash.
+
+**Do it once everything works and before the party.** Shut the Pi down properly
+first — imaging a card that was yanked mid-write just preserves the damage.
+
+On the Mac, with the card in a reader:
+
+```bash
+diskutil list
+```
+
+Find the card. It will be the one whose size matches (64GB) and which shows a
+small `bootfs` FAT partition. **Note its identifier, e.g. `/dev/disk4`.**
+
+⚠️ **Read that number twice.** `dd` aimed at the wrong disk will overwrite it
+without asking and without a progress bar you can interrupt in time. Getting
+this wrong destroys whatever you point it at, including your Mac's own drive.
+If `diskutil list` shows the disk as `internal`, it is not the card.
+
+```bash
+diskutil unmountDisk /dev/disk4
+sudo dd if=/dev/rdisk4 of=~/jarvis-sd-backup.img bs=4m status=progress
+```
+
+Note `rdisk4`, not `disk4` — the raw device is several times faster.
+
+Expect an image the **full size of the card** (64GB), not the size of the data,
+because `dd` copies every block including empty ones. Compress it afterwards:
+
+```bash
+gzip ~/jarvis-sd-backup.img
+```
+
+Compression is only as good as the free space is clean, so do not be surprised
+by a large file. Keep it somewhere that is not the Mac's boot drive.
+
+**To restore onto a fresh card:**
+
+```bash
+diskutil unmountDisk /dev/disk4
+gunzip -c ~/jarvis-sd-backup.img.gz | sudo dd of=/dev/rdisk4 bs=4m status=progress
+```
+
+⚠️ The replacement card must be the **same size or larger**. A card advertised
+as 64GB from a different maker can be slightly smaller, and the restore will
+fail at the very end after twenty minutes.
+
+**Verify it before you trust it.** Put the restored card in the Pi and boot it —
+an image you have never tested is a guess, not a backup.
+
 ### Pre-party checklist — the things software cannot check
 
 Run this on the day, in this order. **It needs a human**, and that is the whole

@@ -314,7 +314,13 @@ the plate is sitting flat and not rocking on them.
 
 ### Also pending
 
-- Optional: **SD card image backup** before Halloween.
+- ⚠️ **SD card image backup — no longer optional.** That card holds the piper
+  voice, the Whisper models, `jarvis.env` with both API keys, the saved ALSA
+  volume, both systemd units and the venv. Steps in `HALLOWEEN.md`.
+- **Shutdown button** (`dtoverlay=gpio-shutdown`, momentary switch on pins 5 and
+  9) so the prop can be turned off without a laptop — and turned back on with
+  the same button. Steps in `HALLOWEEN.md`. ⚠️ Decide where it lives before
+  gluing more of the loom down.
 
 ---
 
