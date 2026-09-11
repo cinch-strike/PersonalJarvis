@@ -66,7 +66,7 @@ JARVIS_MOTION_PIN=17
 JARVIS_CLAUDE_MODEL=claude-haiku-4-5              # fastest — matters live
 JARVIS_WHISPER_MODEL=tiny.en                      # English-only: faster + more accurate
 JARVIS_VAD_SILENCE_MS=700                         # snappier end-of-speech
-JARVIS_JAW_RATE_HZ=2                              # ~0.5s per open+close (default 6 is frantic)
+JARVIS_JAW_RATE_HZ=1                              # ~1s per open+close. Tuned down from 6→3→2→1 by eye; the eyes pulse at this rate too, deliberately
 JARVIS_PIPER_MODEL=$HOME/piper-voices/en_GB-alan-medium.onnx
 JARVIS_PIPER_LENGTH_SCALE=1.3                     # slower = menacing
 JARVIS_PIPER_PITCH=-3                             # deeper (needs sox)
