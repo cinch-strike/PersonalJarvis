@@ -265,13 +265,18 @@ def main() -> int:
     if config.JAW_ENABLED:
         import jaw as jaw_module
         jaw_servo = jaw_module.build_jaw()
-        print(f"   Jaw servo: GPIO {jaw_servo.pin}")
+        # Rate and angles in the banner so journalctl answers "what is it
+        # actually running?" at every boot. Nothing else surfaced them, which
+        # meant checking a tuned value involved reading /proc.
+        print(f"   Jaw servo: GPIO {jaw_servo.pin}, {jaw_servo.rate_hz:g}Hz, "
+              f"closed {jaw_servo.closed_angle:g}° open {jaw_servo.open_angle:g}°")
 
     if config.EYES_ENABLED:
         import eyes as eyes_module
         led_eyes = eyes_module.build_eyes()
         led_eyes.idle()
-        print(f"   LED eyes: GPIO {led_eyes.pin}")
+        print(f"   LED eyes: GPIO {led_eyes.pin}, {led_eyes.rate_hz:g}Hz "
+              f"(follows the jaw)")
 
     import quest as quest_module
     quest_state = quest_module.Quest()
