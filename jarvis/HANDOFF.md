@@ -272,6 +272,24 @@ the tether has.
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
 
+**7. ⚠️ OPEN — the ReSpeaker drops off USB under load.** It disconnects and
+re-enumerates mid-sentence, killing the service with ALSA error -19. Volume makes
+it worse and `usb_max_current_enable=1` helped but did not cure it; at 61% it has
+historically been stable. Every drop shows `usb 3-2` AND `usb 1-2` going at the
+same instant, which looks bus-wide rather than one device failing. Full write-up
+in `HALLOWEEN.md`. **Untried:** moving the ReSpeaker to a port on the other
+controller, and taking the speaker off the Pi's power entirely via 3.5mm from the
+ReSpeaker's output with the Pebble on its own charger — the latter removes the
+contention rather than working around it, and gets full volume back.
+
+**8. ⚠️ OPEN — PIR missed a visitor** (12 Sep). Ambience was playing, someone
+walked in, nothing fired. Suspects in order: the software cooldown
+(`JARVIS_MOTION_COOLDOWN`, default 20s) still running from a previous trigger;
+the PIR's own delay pot not at minimum; sensitivity set too low for the
+approach. Needs watching rather than blind tuning — check the log for a
+`😴 Cooling down` line at the moment it was missed, which distinguishes the
+first cause from the other two.
+
 **6. Rewire the rig — ✅ DONE 5 Sep 2026.** See `REWIRE_PLAN.md` for the
 procedure and `HALLOWEEN.md` for the as-built result. Remaining from it: glue the
 loom, re-glue the linkage and recalibrate the jaw, and re-enable the service at
