@@ -273,6 +273,21 @@ the tether has.
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
 
+**9. ⚠️ OPEN — the VAD hears conversation from outside the room.** With
+`JARVIS_VAD_SILENCE=53`, chatter from the hallway crosses the threshold and
+starts a capture, so the prop listens to people who are not talking to it. The
+53 came from `--test-vad` in an EMPTY bathroom, which is the wrong room: the
+noise floor on the night is a party, not silence. Re-run `--test-vad` with the
+room as it will actually be, or raise the threshold by hand until distant
+conversation stops triggering it. ⚠️ This is the threshold, not the microphone —
+do not turn anything down on the ReSpeaker.
+
+**10. Volume settled at wpctl 0.70 = ALSA 85%.** The two scales differ:
+0.40→61%, 0.70→85%, 1.00→100%. Ran a full evening at 85% with no USB
+disconnects and no crashes. 100% and 0.8 both dropped the mic; 61% always was
+safe. Set it with `wpctl set-volume <sink> 0.7` — wireplumber owns it, `amixer`
+and `alsactl store` are both overridden.
+
 **7. ⚠️ OPEN — the ReSpeaker drops off USB under load.** It disconnects and
 re-enumerates mid-sentence, killing the service with ALSA error -19. Volume makes
 it worse and `usb_max_current_enable=1` helped but did not cure it; at 61% it has
