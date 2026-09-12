@@ -211,7 +211,13 @@ MAX_DEAD_CAPTURES = int(os.environ.get("JARVIS_MAX_DEAD_CAPTURES", "3"))
 # notices people and starts the conversation itself. Sensor: LD2410 mmWave OUT
 # pin or a PIR, on this BCM GPIO pin.
 MOTION_PIN = int(os.environ.get("JARVIS_MOTION_PIN", "17"))
-MOTION_COOLDOWN_S = float(os.environ.get("JARVIS_MOTION_COOLDOWN", "20"))
+# Cooldown after a visit where the prop never actually spoke — a passing cat, a
+# trigger nobody answered, a run of "nothing heard". The full cooldown exists to
+# stop the prop re-greeting the SAME person; if nobody said anything there is
+# nobody to re-greet, and standing down for 20s just means the next real guest
+# walks up to a dead prop.
+MOTION_COOLDOWN_EMPTY = float(os.environ.get("JARVIS_MOTION_COOLDOWN_EMPTY", "3"))
+MOTION_COOLDOWN_S = float(os.environ.get("JARVIS_MOTION_COOLDOWN", "8"))
 MOTION_FOLLOW_UPS = int(os.environ.get("JARVIS_MOTION_FOLLOW_UPS", "4"))
 
 _DEFAULT_BARKERS = [

@@ -303,7 +303,7 @@ class AudioCaptureTrigger(InputTrigger):
         )
         return captured
 
-    def _process_and_drain(self, stream, captured: List) -> None:
+    def _process_and_drain(self, stream, captured: List) -> bool:
         """Hand frames to the pipeline with the mic paused, then flush the backlog.
 
         Pausing keeps our own TTS out of the stream; the drain clears anything
@@ -311,7 +311,7 @@ class AudioCaptureTrigger(InputTrigger):
         """
         stream.stop()
         try:
-            self.process_utterance(captured)
+            spoke = self.process_utterance(captured)
         finally:
             stream.start()
         try:
@@ -320,6 +320,10 @@ class AudioCaptureTrigger(InputTrigger):
                 stream.read(pending)
         except Exception:
             pass
+        # None from a handler that predates this contract counts as "spoke",
+        # so an older caller keeps the full cooldown rather than silently
+        # getting the short one.
+        return spoke is not False
 
 
 class WakeWordTrigger(AudioCaptureTrigger):
@@ -457,7 +461,8 @@ class MotionTrigger(AudioCaptureTrigger):
         eyes: Optional[object] = None,
         barker_lines: Optional[List[str]] = None,
         sensor_pin: int = 17,
-        cooldown_s: float = 20.0,
+        cooldown_s: float = 8.0,
+        cooldown_empty_s: float = 3.0,
         ambience_resume_s: float = 5.0,
         follow_up_turns: int = 4,
         device: Optional[object] = None,
@@ -487,6 +492,7 @@ class MotionTrigger(AudioCaptureTrigger):
         self.barker_lines = list(barker_lines or [])
         self.sensor_pin = sensor_pin
         self.cooldown_s = cooldown_s
+        self.cooldown_empty_s = cooldown_empty_s
         # Ambience comes back part-way through the cooldown rather than at the
         # end of it, so the visitor doesn't walk away into dead silence.
         self.ambience_resume_s = ambience_resume_s
@@ -567,6 +573,7 @@ class MotionTrigger(AudioCaptureTrigger):
                     line = self._next_barker()
                     if line and self.speak:
                         self.speak(line)
+                    spoke_at_all = False
                     for _ in range(max(1, self.follow_up_turns)):
                         self.on_record_start()
                         print("  🎙  Listening...", flush=True)
@@ -574,16 +581,25 @@ class MotionTrigger(AudioCaptureTrigger):
                         if not captured:
                             break
                         print("  ⏳ Processing...")
-                        self._process_and_drain(stream, captured)
+                        if self._process_and_drain(stream, captured):
+                            spoke_at_all = True
 
-                    print(f"  😴 Cooling down {self.cooldown_s:.0f}s...\n")
+                    # A visit where nobody said anything earns a short stand-down.
+                    # The long one is for not re-greeting someone still standing
+                    # there; with nobody to re-greet it only costs the NEXT guest
+                    # a dead prop.
+                    cooldown = self.cooldown_s if spoke_at_all else self.cooldown_empty_s
+                    if spoke_at_all:
+                        print(f"  😴 Cooling down {cooldown:.0f}s...\n")
+                    else:
+                        print(f"  😴 Nobody spoke — back in {cooldown:.0f}s...\n")
                     if self.eyes is not None:
                         self.eyes.idle()     # dim back down as they walk away
-                    resume_at = max(0.0, min(self.ambience_resume_s, self.cooldown_s))
+                    resume_at = max(0.0, min(self.ambience_resume_s, cooldown))
                     time.sleep(resume_at)
                     if self.ambience is not None:
                         self.ambience.start()
-                    time.sleep(self.cooldown_s - resume_at)
+                    time.sleep(cooldown - resume_at)
                     print(f"  👁  Watching for visitors...\n")
         except KeyboardInterrupt:
             print("\n  (motion listener stopped)")

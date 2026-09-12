@@ -129,8 +129,13 @@ def next_flush_line() -> str:
     return _last_flush_line
 
 
-def handle_utterance(captured: list) -> None:
+def handle_utterance(captured: list) -> bool:
     """Transcribe a captured recording, get a reply, and speak it.
+
+    Returns True if the prop actually said something, False if it heard
+    nothing. The motion trigger uses that to decide how long to stand down:
+    a real conversation earns the full cooldown, an empty trigger should not
+    cost the next visitor twenty seconds of a dead prop.
 
     Used directly by audio-managing triggers (wake_word), and by push_to_talk
     via process() below.
@@ -140,12 +145,12 @@ def handle_utterance(captured: list) -> None:
     if flush_detector.matches(captured, config.SAMPLE_RATE):
         print("  🚽 (flush detected)")
         speak(next_flush_line())
-        return
+        return True
 
     text = transcribe(captured)
     if not text:
         print("  (nothing heard — try again)")
-        return
+        return False
     print(f"  You: {text}")
     # Quest lines bypass the LLM entirely — spoken verbatim so a paraphrase
     # cannot send a child to the wrong room, and faster with kids waiting.
@@ -157,7 +162,7 @@ def handle_utterance(captured: list) -> None:
         conversation_history.append({"role": "user", "content": text})
         conversation_history.append({"role": "assistant", "content": scripted})
         speak(scripted)
-        return
+        return True
     # ⚠️ Never let an LLM failure kill the prop. On 12 Sep 2026 an expired API
     # key crash-looped the service seven times: it greeted each visitor, took
     # their question, died, and restarted. Barker generation already degraded
@@ -168,8 +173,9 @@ def handle_utterance(captured: list) -> None:
     except Exception as e:  # noqa: BLE001 — staying up matters more than the reply
         print(f"  ⚠️  LLM unavailable: {e}")
         speak(config.LLM_FALLBACK)
-        return
+        return True
     speak(reply)
+    return True
 
 
 def process() -> None:
@@ -348,6 +354,7 @@ def main() -> int:
                 "barker_lines": barkers,
                 "sensor_pin": config.MOTION_PIN,
                 "cooldown_s": config.MOTION_COOLDOWN_S,
+                "cooldown_empty_s": config.MOTION_COOLDOWN_EMPTY,
                 "ambience_resume_s": config.AMBIENCE_RESUME_S,
                 "follow_up_turns": config.MOTION_FOLLOW_UPS,
                 "device": config.AUDIO_DEVICE,
