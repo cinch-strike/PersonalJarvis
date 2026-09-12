@@ -469,6 +469,32 @@ arrive.
 Louder speech also makes the jaw's clacking relatively quieter, so tune
 `JARVIS_JAW_RATE_HZ` **after** setting the volume, not before.
 
+### Tuning on the night — `./tune.sh`
+
+The two things you will actually want to change mid-party, without editing files
+or remembering where anything lives:
+
+```bash
+cd ~/PersonalJarvis/jarvis/phase1
+./tune.sh show          # what it is set to right now
+./tune.sh vad 120       # raise the listening threshold, restarts for you
+./tune.sh vol 0.6       # set the speaker volume
+```
+
+**`vad` is the one for "it keeps listening to people who are not talking to
+it".** Raise it until distant conversation stops triggering a capture. The
+threshold measured by `--test-vad` in an empty room is always too low for a
+party, because the noise floor on the night is people.
+
+**`vol` finds the wireplumber sink itself**, which matters because that id
+changes every time the device re-enumerates — the number that worked an hour ago
+is probably wrong now. ⚠️ The scales differ: `0.40`→61%, `0.70`→85%, `1.00`→100%.
+
+⚠️ **Volume above about 0.7 has dropped the microphone off USB** on this rig.
+If the mic dies after you turn it up, that is why — go back down.
+
+---
+
 ⚠️ **Check 8 is the one people skip**, and `--test-vad` is how you fix it. If `🎙 Listening` and `⏳ Processing` are
 **15 seconds apart** in the log, the VAD never detected you stopping and it ran
 to the `JARVIS_MAX_UTTERANCE_S` hard cap. That means it recorded 14 seconds of
