@@ -390,6 +390,44 @@ wrong mode, a loose servo supply, or a PIR nobody is waving at. This list can.
 | 8 | **It stops listening when you stop** | talk, then go quiet | `⏳ Processing` within ~1s of you stopping |
 | 9 | Eyes match | watch both during a reply | same brightness, no odd one out |
 
+### ⚠️ usb_max_current_enable — the mic drops without it
+
+**Symptom:** the ReSpeaker disconnects and re-enumerates mid-sentence, Jarvis
+dies with `PortAudioError ... 'No such device' [ALSA error -19]`, systemd
+restarts it, and the speaker logs huge `underrun!!!` messages. It looks like a
+failing USB cable. It is not.
+
+**Cause:** the Pi 5 caps **total** USB current at 600mA unless told otherwise.
+The Pebble and the ReSpeaker share that budget, and at high volume the speaker's
+draw pushes it over. The bus browns out, the microphone falls off it, and the
+prop crashes on the next capture.
+
+**Fix — permanent, survives reboots:**
+
+```bash
+echo "usb_max_current_enable=1" | sudo tee -a /boot/firmware/config.txt
+sudo reboot
+```
+
+That raises the budget to 1.6A, which is what the official 27W supply is for.
+`vcgencmd get_throttled` returning `throttled=0x0` confirms the Pi's own input
+power is healthy — the limit is a firmware policy, not a supply problem, which
+is why that check looks clean while the bus still browns out.
+
+**Proved by A/B**, same five long lines each time:
+
+| Volume | USB disconnects |
+|---|---|
+| 70% | none |
+| 100% | drops mid-sentence |
+| 100%, after the fix | **none** |
+
+⚠️ Do not diagnose this by wiggling the cable — wiggling never reproduced it,
+which sent us looking at the connector for an evening. Reproduce it with volume,
+and read `sudo dmesg | grep -i disconnect` rather than guessing.
+
+---
+
 ⚠️ **The real volume control is wireplumber, not ALSA.** This cost an evening.
 
 PipeWire/wireplumber runs on this Pi, keeps its own volume for each sink, and
