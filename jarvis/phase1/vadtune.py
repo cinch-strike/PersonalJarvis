@@ -38,13 +38,30 @@ FRAME_LENGTH = 1280
 PHASE_S = 5.0
 
 
-def _rms_profile(stream, frames, np):
-    """RMS per frame, computed the same way the live VAD computes it."""
+def _rms_profile(sd, np, rate, frames):
+    """RMS per frame, computed the same way the live VAD computes it.
+
+    ⚠️ Opens the stream HERE rather than taking a long-lived one. An earlier
+    version started the stream once and prompted between phases — and the stream
+    went on buffering through the prompt, so the read returned the stale silence
+    from while the user was reading the screen instead of what they then said.
+    Speech measured quieter than the room, which is impossible and sent us
+    looking at the microphone for an evening.
+    """
     out = []
-    for _ in range(frames):
-        block, _ = stream.read(FRAME_LENGTH)
-        samples = block[:, 0] if block.ndim > 1 else block
-        out.append(float(np.sqrt(np.mean(samples.astype(np.float32) ** 2))))
+    stream = sd.InputStream(
+        samplerate=rate, channels=config.AUDIO_CHANNELS,
+        device=config.AUDIO_DEVICE, dtype="int16", blocksize=FRAME_LENGTH,
+    )
+    stream.start()
+    try:
+        for _ in range(frames):
+            block, _ = stream.read(FRAME_LENGTH)
+            samples = block[:, 0] if block.ndim > 1 else block
+            out.append(float(np.sqrt(np.mean(samples.astype(np.float32) ** 2))))
+    finally:
+        stream.stop()
+        stream.close()
     return out
 
 
@@ -68,27 +85,19 @@ def run() -> int:
     print("   ⚠️  Run this where the prop will actually stand.\n")
 
     try:
-        stream = sd.InputStream(
-            samplerate=rate, channels=config.AUDIO_CHANNELS,
-            device=config.AUDIO_DEVICE, dtype="int16", blocksize=FRAME_LENGTH,
-        )
-        stream.start()
+        input(f"   1/2 — STAY QUIET. Press Enter, then say nothing for {PHASE_S:g}s... ")
+        print("       ● recording...", flush=True)
+        room = _rms_profile(sd, np, rate, frames)
+        print("       done\n")
+
+        input(f"   2/2 — TALK. Press Enter, then talk for the whole {PHASE_S:g}s... ")
+        print("       ● recording — TALK NOW", flush=True)
+        speech = _rms_profile(sd, np, rate, frames)
+        print("       done\n")
     except Exception as e:  # noqa: BLE001
-        print(f"❌ Could not open the microphone: {e}")
+        print(f"\n❌ Could not read the microphone: {e}")
         print("   Is the service holding it? sudo systemctl stop jarvis\n")
         return 1
-
-    try:
-        input(f"   1/2 — STAY QUIET for {PHASE_S:g}s. Press Enter when ready... ")
-        room = _rms_profile(stream, frames, np)
-        print(f"       room floor measured\n")
-
-        input(f"   2/2 — TALK NORMALLY for {PHASE_S:g}s, as a guest would. Enter... ")
-        speech = _rms_profile(stream, frames, np)
-        print("       speech measured\n")
-    finally:
-        stream.stop()
-        stream.close()
 
     room_p50, room_p95, room_max = (_pct(room, p, np) for p in (50, 95, 100))
     sp_p50, sp_p90, sp_max = (_pct(speech, p, np) for p in (50, 90, 100))
