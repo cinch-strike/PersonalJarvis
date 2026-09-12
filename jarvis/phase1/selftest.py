@@ -58,27 +58,37 @@ def _card_name(device: str):
     return m.group(1) if m else None
 
 
-def _set_volume() -> bool:
-    """Force the playback volume, because something else keeps lowering it."""
+def force_volume():
+    """Set the ALSA playback volume. Returns (ok, detail) and never raises.
+
+    ⚠️ Called from BOTH the boot self test and the main process, on purpose.
+    Setting it once at ExecStartPre is not enough: wireplumber starts after us,
+    manages mixer state itself, and restores its own saved value — the self test
+    was observed setting 100% and the card reading 61% a moment later. The
+    second call, once the prop is actually running, lands after that.
+    """
     if not config.OUTPUT_VOLUME:
-        return _line(True, "Volume", "not managed (JARVIS_OUTPUT_VOLUME unset)")
+        return True, "not managed (JARVIS_OUTPUT_VOLUME unset)"
     card = _card_name(config.AUDIO_OUTPUT or "")
     if not card:
-        return _line(False, "Volume",
-                     "cannot find a CARD= name in JARVIS_AUDIO_OUTPUT")
+        return False, "cannot find a CARD= name in JARVIS_AUDIO_OUTPUT"
     if shutil.which("amixer") is None:
-        return _line(False, "Volume", "amixer not installed (apt install alsa-utils)")
+        return False, "amixer not installed (apt install alsa-utils)"
     try:
         r = subprocess.run(["amixer", "-c", card, "sset", "PCM", config.OUTPUT_VOLUME],
                            capture_output=True, text=True, timeout=10)
     except Exception as e:  # noqa: BLE001
-        return _line(False, "Volume", f"{e}")
+        return False, str(e)
     if r.returncode != 0:
         err = (r.stderr or "").strip().splitlines()
-        return _line(False, "Volume", err[-1] if err else "amixer failed")
+        return False, err[-1] if err else "amixer failed"
     now = re.search(r"\[(\d+%)\]", r.stdout)
-    return _line(True, "Volume",
-                 f"card {card} set to {now.group(1) if now else config.OUTPUT_VOLUME}")
+    return True, f"card {card} set to {now.group(1) if now else config.OUTPUT_VOLUME}"
+
+
+def _set_volume() -> bool:
+    ok, detail = force_volume()
+    return _line(ok, "Volume", detail)
 
 
 def _check_speaker() -> bool:

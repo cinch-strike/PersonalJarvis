@@ -295,6 +295,13 @@ def main() -> int:
         print(f"   LED eyes: GPIO {led_eyes.pin}, {led_eyes.rate_hz:g}Hz "
               f"(follows the jaw)")
 
+    # Re-assert the speaker volume now the process is really up. See
+    # selftest.force_volume — wireplumber restores its own value after our
+    # ExecStartPre runs, so setting it only there silently loses.
+    import selftest as selftest_module
+    vol_ok, vol_detail = selftest_module.force_volume()
+    print(f"   Volume: {vol_detail}" + ("" if vol_ok else "  ⚠️"))
+
     import quest as quest_module
     quest_state = quest_module.Quest()
     if quest_state.enabled:
