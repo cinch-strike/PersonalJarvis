@@ -884,3 +884,45 @@ class TestClaudeToolLoop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LLMFailureTests(unittest.TestCase):
+    """A failed LLM call must degrade, not kill the prop, and must not poison
+    the conversation history on the way out.
+
+    On 12 Sep 2026 a rotated API key crash-looped the service seven times: it
+    greeted each visitor, took their question, died, and restarted.
+    """
+
+    def test_every_persona_has_a_fallback_line(self):
+        import config as cfg
+        for name, persona in cfg._PERSONAS.items():
+            with self.subTest(persona=name):
+                self.assertTrue(persona.get("fallback"), f"{name} has no fallback")
+                self.assertGreater(len(persona["fallback"]), 20)
+
+    def test_fallback_follows_the_active_persona(self):
+        import importlib, os
+        import config as cfg
+        orig = os.environ.get("JARVIS_PERSONA")
+        try:
+            os.environ["JARVIS_PERSONA"] = "vlad"
+            importlib.reload(cfg)
+            self.assertEqual(cfg.LLM_FALLBACK, cfg._PERSONAS["vlad"]["fallback"])
+        finally:
+            if orig is None:
+                os.environ.pop("JARVIS_PERSONA", None)
+            else:
+                os.environ["JARVIS_PERSONA"] = orig
+            importlib.reload(cfg)
+
+    def test_fallback_is_overridable(self):
+        import importlib, os
+        import config as cfg
+        try:
+            os.environ["JARVIS_LLM_FALLBACK"] = "custom line"
+            importlib.reload(cfg)
+            self.assertEqual(cfg.LLM_FALLBACK, "custom line")
+        finally:
+            os.environ.pop("JARVIS_LLM_FALLBACK", None)
+            importlib.reload(cfg)

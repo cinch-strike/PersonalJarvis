@@ -272,6 +272,9 @@ FLUSH_COUNT = int(os.environ.get("JARVIS_FLUSH_COUNT", "12"))
 _PERSONAS = {
     "jarvis": {
         "name": "Jarvis",
+        "fallback": (
+            "I can't reach my reasoning service right now. Try me again in a moment."
+        ),
         "prompt": (
             "You are Jarvis, a sharp and concise AI assistant. "
             "Keep responses to 2-3 sentences unless the user asks for detail. "
@@ -284,6 +287,9 @@ _PERSONAS = {
     # fuel — there are kids at the party.
     "skull": {
         "name": "Skull",
+        "fallback": (
+            "The veil is thick tonight and the spirits have gone quiet. Ask me again shortly."
+        ),
         "prompt": (
             "You are a talking skull at a Halloween party — an ancient, theatrical "
             "spirit bound to a decorated skull on a table. You have been dead a very "
@@ -326,6 +332,9 @@ _PERSONAS = {
     # instantly, which matters when someone is shouting across a room.
     "vlad": {
         "name": "Vlad",
+        "fallback": (
+            "The spirits are sulking and will not whisper to me. Ask again in a moment — I am not going anywhere."
+        ),
         "prompt": (
             "You are Vlad, an ancient Eastern European vampire count whose spirit "
             "is bound to a decorated skull on a table at a Halloween party. You "
@@ -383,5 +392,10 @@ _persona = _PERSONAS[PERSONA]
 
 NAME = os.environ.get("JARVIS_NAME") or _persona.get("name", "Jarvis")
 SYSTEM_PROMPT = os.environ.get("JARVIS_SYSTEM_PROMPT") or _persona["prompt"]
+# Spoken when the LLM cannot be reached, so a network blip or an expired key
+# degrades to a prop that stays in character rather than one that crash-loops.
+LLM_FALLBACK = os.environ.get("JARVIS_LLM_FALLBACK") or _persona.get(
+    "fallback", "I cannot answer that just now. Ask me again in a moment."
+)
 GREETING = os.environ.get("JARVIS_GREETING") or _persona["greeting"]
 FAREWELL = os.environ.get("JARVIS_FAREWELL") or _persona["farewell"]

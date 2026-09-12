@@ -100,15 +100,22 @@ def transcribe(recorded_frames: list) -> str:
 
 
 def ask_llm(user_text: str) -> str:
-    """Send transcribed text to the active LLM backend and return its response."""
-    conversation_history.append({"role": "user", "content": user_text})
+    """Send transcribed text to the active LLM backend and return its response.
+
+    ⚠️ The user turn is appended to `conversation_history` only AFTER the call
+    succeeds. Appending first looks harmless and is not: a failed request would
+    leave a user message with no assistant reply, so the NEXT request sends two
+    user turns in a row, which the API rejects. One transient failure would then
+    poison every request for the rest of the night.
+    """
     memory.save_turn(session_id, "user", user_text)
     reply = llm_backend.generate(
         system=system_prompt,
-        messages=conversation_history,
+        messages=conversation_history + [{"role": "user", "content": user_text}],
         max_tokens=config.MAX_TOKENS,
         tools=tool_registry,
     )
+    conversation_history.append({"role": "user", "content": user_text})
     conversation_history.append({"role": "assistant", "content": reply})
     memory.save_turn(session_id, "assistant", reply)
     return reply
@@ -151,7 +158,17 @@ def handle_utterance(captured: list) -> None:
         conversation_history.append({"role": "assistant", "content": scripted})
         speak(scripted)
         return
-    reply = ask_llm(text)
+    # ⚠️ Never let an LLM failure kill the prop. On 12 Sep 2026 an expired API
+    # key crash-looped the service seven times: it greeted each visitor, took
+    # their question, died, and restarted. Barker generation already degraded
+    # gracefully to default lines; this path did not, which is the inconsistency
+    # that made a bad key look like a broken prop.
+    try:
+        reply = ask_llm(text)
+    except Exception as e:  # noqa: BLE001 — staying up matters more than the reply
+        print(f"  ⚠️  LLM unavailable: {e}")
+        speak(config.LLM_FALLBACK)
+        return
     speak(reply)
 
 
