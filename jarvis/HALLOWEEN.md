@@ -390,7 +390,30 @@ wrong mode, a loose servo supply, or a PIR nobody is waving at. This list can.
 | 8 | **It stops listening when you stop** | talk, then go quiet | `⏳ Processing` within ~1s of you stopping |
 | 9 | Eyes match | watch both during a reply | same brightness, no odd one out |
 
-⚠️ **The speaker's ALSA volume is separate from its knob, and it defaults low.**
+⚠️ **The real volume control is wireplumber, not ALSA.** This cost an evening.
+
+PipeWire/wireplumber runs on this Pi, keeps its own volume for each sink, and
+re-applies it to the hardware control whenever it can — including the moment
+Jarvis releases the device. Setting `amixer` and running `alsactl store` both
+appear to work and are silently undone: the boot self test was observed setting
+100%, and the card read 61% seconds later.
+
+Fix it at the source instead:
+
+```bash
+wpctl status                    # find the Pebble under Sinks, note its id
+wpctl set-volume <id> 1.0       # e.g. wpctl set-volume 80 1.0
+amixer -c V3 | grep Mono        # confirm 100%
+```
+
+The sink id changes between boots, so read it from `wpctl status` each time
+rather than memorising it. `[vol: 0.40]` in that listing is what was driving the
+card to 61%.
+
+`JARVIS_OUTPUT_VOLUME` still forces the ALSA control at startup as a second
+line of defence, but wireplumber is the one that has the last word.
+
+⚠️ **The speaker's ALSA volume is also separate from its knob, and defaults low.**
 It was found at **61%, which is −23.4 dB** — Vlad had been playing at a fraction
 of what the Pebble can do, with the physical knob already on maximum. Fix and
 make it stick:
