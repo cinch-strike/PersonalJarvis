@@ -217,7 +217,7 @@ MOTION_PIN = int(os.environ.get("JARVIS_MOTION_PIN", "17"))
 # nobody to re-greet, and standing down for 20s just means the next real guest
 # walks up to a dead prop.
 MOTION_COOLDOWN_EMPTY = float(os.environ.get("JARVIS_MOTION_COOLDOWN_EMPTY", "3"))
-MOTION_COOLDOWN_S = float(os.environ.get("JARVIS_MOTION_COOLDOWN", "8"))
+MOTION_COOLDOWN_S = float(os.environ.get("JARVIS_MOTION_COOLDOWN", "0"))
 MOTION_FOLLOW_UPS = int(os.environ.get("JARVIS_MOTION_FOLLOW_UPS", "4"))
 
 _DEFAULT_BARKERS = [

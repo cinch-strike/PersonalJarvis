@@ -584,22 +584,32 @@ class MotionTrigger(AudioCaptureTrigger):
                         if self._process_and_drain(stream, captured):
                             spoke_at_all = True
 
-                    # A visit where nobody said anything earns a short stand-down.
-                    # The long one is for not re-greeting someone still standing
-                    # there; with nobody to re-greet it only costs the NEXT guest
-                    # a dead prop.
-                    cooldown = self.cooldown_s if spoke_at_all else self.cooldown_empty_s
-                    if spoke_at_all:
-                        print(f"  😴 Cooling down {cooldown:.0f}s...\n")
-                    else:
-                        print(f"  😴 Nobody spoke — back in {cooldown:.0f}s...\n")
+                    # Presence-driven, not a timer. Wait for them to actually
+                    # move away before resuming the ambience and re-arming,
+                    # rather than standing down for a fixed count.
+                    #
+                    # A fixed cooldown had the wrong failure mode: a visit where
+                    # nobody spoke still cost the next arrival twenty seconds of
+                    # a prop that did nothing, and they would not try twice.
+                    #
+                    # ⚠️ A PIR reports MOVEMENT, not presence. Someone standing
+                    # still reads as "gone" within seconds, so their next
+                    # movement re-greets them. JARVIS_MOTION_COOLDOWN is kept as
+                    # a minimum stand-down for exactly that — raise it if the
+                    # prop gets chatty with someone lingering.
                     if self.eyes is not None:
                         self.eyes.idle()     # dim back down as they walk away
-                    resume_at = max(0.0, min(self.ambience_resume_s, cooldown))
-                    time.sleep(resume_at)
+                    if not spoke_at_all:
+                        print("  🚶 Nobody spoke.\n")
+                    print("  🚶 Waiting for them to move away...", flush=True)
+                    try:
+                        sensor.wait_for_no_motion()
+                    except Exception:        # noqa: BLE001 — never strand the loop
+                        time.sleep(1.0)
+                    if self.cooldown_s > 0:
+                        time.sleep(self.cooldown_s)
                     if self.ambience is not None:
                         self.ambience.start()
-                    time.sleep(cooldown - resume_at)
                     print(f"  👁  Watching for visitors...\n")
         except KeyboardInterrupt:
             print("\n  (motion listener stopped)")

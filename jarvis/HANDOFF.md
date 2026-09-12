@@ -98,8 +98,7 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_QUEST_NAME_WINDOW_S` | `60` | How long after stage 3 the next utterance counts as a name |
 | `JARVIS_QUEST_REPEAT_WINDOW_S` | `180` | How long a scripted line stays repeatable via "say that again" |
 | `JARVIS_QUEST_REPEAT_PREFIX` | (built in) | Spoken before a repeated line |
-| `JARVIS_MOTION_COOLDOWN` | `8` | Stand-down after a visit where the prop actually spoke. Stops it re-greeting someone still standing there |
-| `JARVIS_MOTION_COOLDOWN_EMPTY` | `3` | Stand-down after a visit where nobody said anything. ⚠️ Short on purpose — with nobody to re-greet, a long one only costs the NEXT guest a dead prop |
+| `JARVIS_MOTION_COOLDOWN` | `0` | **Minimum** stand-down after a visit. Normally the prop waits for the visitor to move away instead. ⚠️ Raise it only if a PIR reading someone as "gone" while they stand still makes it re-greet them |
 | `JARVIS_OUTPUT_VOLUME` | — | ALSA playback volume forced at every start, e.g. `100%`. ⚠️ Needed because `alsactl store` does not hold — wireplumber restores its own value at boot and wins |
 | `JARVIS_QUEST_LOG` | `~/quest_log.txt` | One line per stage reached and per winner name, with timestamps |
 
