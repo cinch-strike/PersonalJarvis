@@ -107,7 +107,13 @@ def run() -> int:
     print(f"   Speaking median {sp_p50:7.0f}   90th {sp_p90:7.0f}   peak {sp_max:7.0f}")
     print("   ─────────────────────────────────────────────\n")
 
-    if sp_p50 <= room_p95:
+    # ⚠️ Compare against the LOUD end of speech, not the median. Speech has gaps
+    # between words, so the median frame lands in a pause and reads barely above
+    # the room — the first version of this reported a real 7x margin as 1.1x and
+    # suggested a threshold one unit above the noise floor, which would never
+    # have detected silence at all.
+    voiced = sp_p90
+    if voiced <= room_p95:
         print("   ❌ Your voice is not louder than the room.")
         print("      No threshold can separate them. Move the mic closer to where")
         print("      guests stand, quieten the room, or turn the ambience down.\n")
@@ -115,15 +121,15 @@ def run() -> int:
 
     # Geometric mean sits proportionally between the two, which suits a
     # measure that spans orders of magnitude better than a plain average.
-    suggested = int((room_p95 * sp_p50) ** 0.5)
-    margin = sp_p50 / room_p95 if room_p95 else float("inf")
+    suggested = int((room_p95 * voiced) ** 0.5)
+    margin = voiced / room_p95 if room_p95 else float("inf")
     if margin < 2.5:
         print(f"   ⚠️  Only {margin:.1f}x between room and voice — that is tight.")
         print("      Expect it to be twitchy: it will sometimes cut people off and")
         print("      sometimes run to the 15s cap. Worth moving the mic closer to")
         print("      where guests stand before accepting this.\n")
     print(f"   ✅ Suggested:  JARVIS_VAD_SILENCE={suggested}")
-    print(f"      (clear of the room at {room_p95:.0f}, well under speech at {sp_p50:.0f})\n")
+    print(f"      (clear of the room at {room_p95:.0f}, well under voiced speech at {voiced:.0f})\n")
     print("      Set it in ~/.config/jarvis/jarvis.env, then confirm the gap")
     print("      between '🎙 Listening' and '⏳ Processing' is about a second,")
     print("      not 15. If it cuts you off mid-sentence, lower it.\n")
