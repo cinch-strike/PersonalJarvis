@@ -98,6 +98,7 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_QUEST_NAME_WINDOW_S` | `60` | How long after stage 3 the next utterance counts as a name |
 | `JARVIS_QUEST_REPEAT_WINDOW_S` | `180` | How long a scripted line stays repeatable via "say that again" |
 | `JARVIS_QUEST_REPEAT_PREFIX` | (built in) | Spoken before a repeated line |
+| `JARVIS_OUTPUT_VOLUME` | — | ALSA playback volume forced at every start, e.g. `100%`. ⚠️ Needed because `alsactl store` does not hold — wireplumber restores its own value at boot and wins |
 | `JARVIS_QUEST_LOG` | `~/quest_log.txt` | One line per stage reached and per winner name, with timestamps |
 
 **On the Pi:** `sudo apt install espeak-ng alsa-utils`, install the piper binary +

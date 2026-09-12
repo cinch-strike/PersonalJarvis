@@ -191,6 +191,14 @@ AUDIO_DEVICE = _audio_device()
 AUDIO_CHANNELS = int(os.environ.get("JARVIS_AUDIO_CHANNELS", "1"))
 # ALSA playback device for TTS (Linux). e.g. "plughw:3,0" for a USB speaker.
 AUDIO_OUTPUT = os.environ.get("JARVIS_AUDIO_OUTPUT") or None
+# ALSA playback volume to force at startup, e.g. "100%". Empty leaves it alone.
+#
+# ⚠️ Needed because `alsactl store` does not hold on this Pi: wireplumber is
+# running, manages mixer state itself, and restores its own saved value at boot,
+# which beats whatever alsactl restored. The Pebble was found back at 61%
+# (-23.4dB) after having been set to 100% and stored. Setting it on every start
+# means nothing else gets the last word.
+OUTPUT_VOLUME = os.environ.get("JARVIS_OUTPUT_VOLUME", "").strip()
 VAD_SILENCE = float(os.environ.get("JARVIS_VAD_SILENCE", "500"))
 VAD_SILENCE_MS = int(os.environ.get("JARVIS_VAD_SILENCE_MS", "1000"))
 MAX_UTTERANCE_S = int(os.environ.get("JARVIS_MAX_UTTERANCE_S", "15"))

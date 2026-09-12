@@ -31,6 +31,7 @@ Run by hand:  python jarvis.py --selftest
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import time
@@ -49,6 +50,35 @@ def _line(ok, label, detail):
     mark = "✅" if ok else "❌"
     print(f"   {mark} {label:<16} {detail}")
     return ok
+
+
+def _card_name(device: str):
+    """Pull the ALSA card out of a device string like plughw:CARD=V3,DEV=0."""
+    m = re.search(r"CARD=([A-Za-z0-9_]+)", device or "")
+    return m.group(1) if m else None
+
+
+def _set_volume() -> bool:
+    """Force the playback volume, because something else keeps lowering it."""
+    if not config.OUTPUT_VOLUME:
+        return _line(True, "Volume", "not managed (JARVIS_OUTPUT_VOLUME unset)")
+    card = _card_name(config.AUDIO_OUTPUT or "")
+    if not card:
+        return _line(False, "Volume",
+                     "cannot find a CARD= name in JARVIS_AUDIO_OUTPUT")
+    if shutil.which("amixer") is None:
+        return _line(False, "Volume", "amixer not installed (apt install alsa-utils)")
+    try:
+        r = subprocess.run(["amixer", "-c", card, "sset", "PCM", config.OUTPUT_VOLUME],
+                           capture_output=True, text=True, timeout=10)
+    except Exception as e:  # noqa: BLE001
+        return _line(False, "Volume", f"{e}")
+    if r.returncode != 0:
+        err = (r.stderr or "").strip().splitlines()
+        return _line(False, "Volume", err[-1] if err else "amixer failed")
+    now = re.search(r"\[(\d+%)\]", r.stdout)
+    return _line(True, "Volume",
+                 f"card {card} set to {now.group(1) if now else config.OUTPUT_VOLUME}")
 
 
 def _check_speaker() -> bool:
@@ -165,7 +195,8 @@ def _check_env() -> bool:
 def run() -> int:
     """Exercise every device. 0 if nothing is missing or dead, 1 otherwise."""
     print(f"\n🔧 {config.NAME} self test  (persona: {config.PERSONA})\n")
-    results = [_check_env(), _check_speaker(), _check_mic(), _check_gpio()]
+    results = [_check_env(), _set_volume(), _check_speaker(),
+               _check_mic(), _check_gpio()]
     failed = results.count(False)
     if failed:
         print(f"\n   ❌ {failed} check(s) failed — see above.")
