@@ -273,6 +273,45 @@ the tether has.
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
 
+**11. ⚠️ OPEN — PIR false-triggering, probably the pots (25 Sep).** It greeted
+an empty room roughly every 20-90s, then settled into a perfect metronome:
+HIGH for 1.16s, LOW for 3.84s, repeating every 5.000s.
+
+Ruled out, with evidence:
+- **Not Jarvis** — it kept firing with the service stopped.
+- **Not the servo or LEDs** — same, nothing else was running.
+- **Not detection** — it fired with the dome covered.
+- **Not power** — 5.082V steady at the sensor's own pins.
+- **Not ground** — 0V between the PIR's GND and Pi pin 9, across the whole run.
+
+⚠️ The pots had clearly been knocked when the rig was carried into the
+bathroom: the pulse measured 1.16s when the documented minimum is about 5s.
+Setting **both pots to centre** restored normal detection. **Not yet confirmed
+that the false triggers stopped** — that needs a few minutes watching an empty
+room, and is the first thing to do next session.
+
+Useful technique if it returns — measure the PULSE WIDTH, not just the edges:
+
+```bash
+.venv/bin/python -c "
+from gpiozero import DigitalInputDevice
+import time
+p = DigitalInputDevice(17, pull_up=False)
+while True:
+    p.wait_for_active()
+    t = time.monotonic()
+    p.wait_for_inactive()
+    print(f'{time.strftime(\"%H:%M:%S\")}  HIGH for {time.monotonic()-t:.3f}s')
+"
+```
+
+Identical widths at a fixed interval mean an oscillation, not a person. Varying
+widths at irregular intervals mean it is really detecting something. That
+distinction is what turned an evening of guessing into an answer.
+
+A spare XC4444 is on hand. The `HLK-LD2410C` mmWave remains the better part —
+detects presence rather than movement, same three wires, no code change.
+
 **9. ⚠️ OPEN — the VAD hears conversation from outside the room.** With
 `JARVIS_VAD_SILENCE=53`, chatter from the hallway crosses the threshold and
 starts a capture, so the prop listens to people who are not talking to it. The
