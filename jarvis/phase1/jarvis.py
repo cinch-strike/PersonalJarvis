@@ -355,6 +355,7 @@ def main() -> int:
                 "sensor_pin": config.MOTION_PIN,
                 "cooldown_s": config.MOTION_COOLDOWN_S,
                 "cooldown_empty_s": config.MOTION_COOLDOWN_EMPTY,
+                "clear_timeout_s": config.MOTION_CLEAR_TIMEOUT,
                 "ambience_resume_s": config.AMBIENCE_RESUME_S,
                 "follow_up_turns": config.MOTION_FOLLOW_UPS,
                 "device": config.AUDIO_DEVICE,

@@ -217,6 +217,15 @@ MOTION_PIN = int(os.environ.get("JARVIS_MOTION_PIN", "17"))
 # nobody to re-greet, and standing down for 20s just means the next real guest
 # walks up to a dead prop.
 MOTION_COOLDOWN_EMPTY = float(os.environ.get("JARVIS_MOTION_COOLDOWN_EMPTY", "3"))
+
+# How long to wait for a visitor to move away before re-arming anyway.
+#
+# ⚠️ Not optional. Waiting for no-motion with no limit means a sensor that keeps
+# firing — someone lingering, or a PIR flapping — leaves the prop stuck in
+# "waiting for them to move away" while new guests walk up and get nothing.
+# Observed in testing. Re-arming early at worst re-greets someone still there;
+# not re-arming at all is a dead prop.
+MOTION_CLEAR_TIMEOUT = float(os.environ.get("JARVIS_MOTION_CLEAR_TIMEOUT", "10"))
 MOTION_COOLDOWN_S = float(os.environ.get("JARVIS_MOTION_COOLDOWN", "0"))
 MOTION_FOLLOW_UPS = int(os.environ.get("JARVIS_MOTION_FOLLOW_UPS", "4"))
 

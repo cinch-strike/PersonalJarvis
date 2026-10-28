@@ -463,6 +463,7 @@ class MotionTrigger(AudioCaptureTrigger):
         sensor_pin: int = 17,
         cooldown_s: float = 8.0,
         cooldown_empty_s: float = 3.0,
+        clear_timeout_s: float = 10.0,
         ambience_resume_s: float = 5.0,
         follow_up_turns: int = 4,
         device: Optional[object] = None,
@@ -493,6 +494,7 @@ class MotionTrigger(AudioCaptureTrigger):
         self.sensor_pin = sensor_pin
         self.cooldown_s = cooldown_s
         self.cooldown_empty_s = cooldown_empty_s
+        self.clear_timeout_s = clear_timeout_s
         # Ambience comes back part-way through the cooldown rather than at the
         # end of it, so the visitor doesn't walk away into dead silence.
         self.ambience_resume_s = ambience_resume_s
@@ -601,9 +603,17 @@ class MotionTrigger(AudioCaptureTrigger):
                         self.eyes.idle()     # dim back down as they walk away
                     if not spoke_at_all:
                         print("  🚶 Nobody spoke.\n")
-                    print("  🚶 Waiting for them to move away...", flush=True)
+                    print(f"  🚶 Waiting for them to move away "
+                          f"(up to {self.clear_timeout_s:.0f}s)...", flush=True)
                     try:
-                        sensor.wait_for_no_motion()
+                        # ⚠️ BOUNDED. An unbounded wait leaves the prop stuck
+                        # here whenever the sensor keeps firing — a lingering
+                        # guest, or a PIR flapping — while new arrivals walk up
+                        # and get nothing at all.
+                        cleared = sensor.wait_for_no_motion(
+                            timeout=self.clear_timeout_s)
+                        if cleared is False:
+                            print("  ⏱  Still sensing motion — re-arming anyway.")
                     except Exception:        # noqa: BLE001 — never strand the loop
                         time.sleep(1.0)
                     if self.cooldown_s > 0:
