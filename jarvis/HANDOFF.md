@@ -273,6 +273,25 @@ the tether has.
 **4. Component covers** (rock / bone / tombstone) for the PIR, mic, Pi +
 breadboard and powerboard — not started.
 
+### ⚠️ Working values as of 28 Oct 2026 — three days before the party
+
+`jarvis.env` is not in git (it holds both API keys), so these are written here
+to be recoverable. If that SD card dies, this is the tuning you rebuild from.
+
+| Setting | Value | Note |
+|---|---|---|
+| `JARVIS_VAD_SILENCE` | **1200** | Measured in the bathroom with the ambience OFF and people chatting outside — the condition he actually listens in. Room floor 603, voiced speech 11552 |
+| Speaker volume | **wpctl 0.70** = ALSA 85% | Set with `./tune.sh vol 0.7`. wireplumber owns it |
+| `JARVIS_JAW_RATE_HZ` | **1** | Eyes follow the same rate |
+| `JARVIS_MOTION_COOLDOWN` | **0** | Presence-driven instead |
+| `JARVIS_MOTION_CLEAR_TIMEOUT` | **10** | Code default. Re-arms even if the sensor stays high |
+| `JARVIS_PERSONA` | **vlad** | |
+| `JARVIS_QUEST_ENABLED` | **true** | |
+| PIR pots | **both centre** | Restored detection after they were knocked |
+
+⚠️ Deliberately NOT set: `JARVIS_OUTPUT_VOLUME`. It forces the ALSA control at
+startup and fights wireplumber, which owns the volume. Leave it out.
+
 **11. ⚠️ OPEN — PIR false-triggering, probably the pots (25 Sep).** It greeted
 an empty room roughly every 20-90s, then settled into a perfect metronome:
 HIGH for 1.16s, LOW for 3.84s, repeating every 5.000s.
