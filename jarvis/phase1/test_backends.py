@@ -926,3 +926,56 @@ class LLMFailureTests(unittest.TestCase):
         finally:
             os.environ.pop("JARVIS_LLM_FALLBACK", None)
             importlib.reload(cfg)
+
+
+class StallGuardTests(unittest.TestCase):
+    """A capture that blocks forever must restart the prop, not hang it.
+
+    Seen 28 Oct, three days before the party: four and a half minutes sitting
+    in "Listening" against a fifteen-second cap, process alive, device still on
+    USB. The existing watchdog looks for a mic returning audio too FAST and
+    cannot see this at all.
+    """
+
+    def _trigger(self):
+        # AudioCaptureTrigger is abstract (run()); subclass it just to exercise
+        # the guard, which lives on the base.
+        import input_trigger
+
+        class _Concrete(input_trigger.AudioCaptureTrigger):
+            def run(self):
+                pass
+
+        return _Concrete(
+            lambda: None, lambda: None, lambda: None,
+            process_utterance=lambda f: None,
+        )
+
+    def test_guard_fires_after_the_cap_plus_grace(self):
+        import input_trigger
+        from unittest import mock
+        t = self._trigger()
+        with mock.patch.object(input_trigger.threading, "Timer") as timer:
+            t._arm_stall_guard()
+        delay = timer.call_args[0][0]
+        self.assertEqual(delay, t.max_utterance_s + t.STALL_GRACE_S)
+
+    def test_guard_allows_a_slow_but_working_capture(self):
+        # Must never fire on a capture that is merely slow — only on one that
+        # has stopped returning. The grace is what buys that.
+        t = self._trigger()
+        self.assertGreaterEqual(t.STALL_GRACE_S, 10)
+
+    def test_guard_is_cancellable(self):
+        # cancel() stops the action; the thread itself lingers until it wakes,
+        # so the contract to check is the finished flag, not is_alive().
+        t = self._trigger()
+        g = t._arm_stall_guard()
+        g.cancel()
+        self.assertTrue(g.finished.is_set(), "guard would still fire after cancel")
+
+    def test_guard_thread_never_blocks_shutdown(self):
+        t = self._trigger()
+        g = t._arm_stall_guard()
+        self.assertTrue(g.daemon)
+        g.cancel()

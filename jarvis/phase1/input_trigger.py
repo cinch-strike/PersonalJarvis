@@ -25,6 +25,8 @@ lazily inside `run()` so this module stays importable anywhere — tests,
 
 from __future__ import annotations
 
+import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional
@@ -224,6 +226,11 @@ class AudioCaptureTrigger(InputTrigger):
 
     manages_audio = True
 
+    # Seconds past the utterance cap before we treat a capture as stalled and
+    # restart. Generous: a slow but working read must never trip this, only a
+    # read that has stopped returning entirely.
+    STALL_GRACE_S = 20
+
     def __init__(
         self,
         on_record_start: Callable[[], None],
@@ -277,8 +284,26 @@ class AudioCaptureTrigger(InputTrigger):
             )
 
     def _capture_utterance(self, stream, frame_length: int, rate: int) -> List:
-        """Record from `stream` until the speaker pauses (or the cap is hit)."""
+        """Record from `stream` until the speaker pauses (or the cap is hit).
+
+        ⚠️ Guarded against a stream that BLOCKS. Observed 28 Oct: the prop sat
+        in "Listening" for four and a half minutes against a fifteen-second cap,
+        with the process alive and the device still on USB. stream.read() simply
+        never returned.
+
+        Nothing else catches this. _check_stream_alive looks for a mic handing
+        back audio impossibly FAST (the dead-buffer failure seen in September);
+        a read that never returns at all slips straight past it, and the prop is
+        silently dead for the rest of the night.
+
+        A blocking read inside PortAudio cannot be interrupted from Python, so
+        the guard is a timer that exits the process. Blunt, but systemd restarts
+        us in seconds — which is the difference between a five-second gap and a
+        dead prop nobody notices until the party is over.
+        """
         import numpy as np
+
+        guard = self._arm_stall_guard()
 
         silence_frames = max(1, int(self.silence_ms / 1000 * rate / frame_length))
         max_frames = int(self.max_utterance_s * rate / frame_length)
@@ -298,10 +323,25 @@ class AudioCaptureTrigger(InputTrigger):
                 silence_run += 1
                 if silence_run >= silence_frames:
                     break
+        guard.cancel()
         self._check_stream_alive(
             len(captured), frame_length, rate, time.monotonic() - started
         )
         return captured
+
+    def _arm_stall_guard(self) -> threading.Timer:
+        """Exit the process if a capture runs far past its own hard cap."""
+        limit = self.max_utterance_s + self.STALL_GRACE_S
+
+        def _blew_up():
+            print(f"\n  ❌ Microphone stalled — no audio for {limit:.0f}s against a "
+                  f"{self.max_utterance_s}s cap. Restarting.\n", flush=True)
+            os._exit(1)      # systemd Restart=on-failure brings us straight back
+
+        t = threading.Timer(limit, _blew_up)
+        t.daemon = True
+        t.start()
+        return t
 
     def _process_and_drain(self, stream, captured: List) -> bool:
         """Hand frames to the pipeline with the mic paused, then flush the backlog.
