@@ -182,7 +182,17 @@ REPEAT_PREFIX = os.environ.get("JARVIS_QUEST_REPEAT_PREFIX",
 SKULL_WORDS = set(_forms(os.environ.get(
     "JARVIS_QUEST_SKULL_WORDS", "skull,skulls,call,scull,skol")))
 JAW_WORDS = set(_forms(os.environ.get(
-    "JARVIS_QUEST_JAW_WORDS", "jaw,jaws,jawbone,teeth,tooth,mouth,jor,draw")))
+    "JARVIS_QUEST_JAW_WORDS",
+    "jaw,jaws,jawbone,teeth,tooth,mouth,jor,draw,drill,jawline")))
+
+# How long an utterance may be and still count as naming the jaw.
+#
+# ⚠️ Raised from 6 to 10 on the night. The limit exists so ordinary chatter
+# containing "jaw" cannot hand the answer to a group that has not earned it —
+# but guests speak in sentences, not keywords. "I mean Elena is missing a
+# drill" is seven words and was silently rejected by a guest who had solved it.
+# Being handed the answer early is cheaper than being unable to give it.
+JAW_MAX_WORDS = int(os.environ.get("JARVIS_QUEST_JAW_MAX_WORDS", "10"))
 
 
 _WORD = re.compile(r"[a-z0-9]+")
@@ -235,7 +245,7 @@ STAGES = (
         # earned it.
         "name": "jaw",
         "groups": (JAW_WORDS,),
-        "max_words": 6,
+        "max_words": JAW_MAX_WORDS,
         "reply": lambda: JAW,
     },
 )

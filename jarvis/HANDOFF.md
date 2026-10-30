@@ -88,7 +88,8 @@ Mac defaults reproduce Phase 1 exactly. Configure via these env vars (all option
 | `JARVIS_QUEST_ENABLED` | `false` | Turn the Elena treasure hunt on |
 | `JARVIS_QUEST_WORD1` | `winter` | First magic word. ⚠️ Chosen for Whisper: two syllables, common, no homophone |
 | `JARVIS_QUEST_SKULL_WORDS` | `skull,skulls,call,scull,skol` | Stage 2 trigger. ⚠️ Includes `call` because that is what "skull" becomes in an accented voice through `tiny.en` |
-| `JARVIS_QUEST_JAW_WORDS` | `jaw,jaws,jawbone,teeth,tooth,mouth,jor,draw` | Stage 3 trigger |
+| `JARVIS_QUEST_JAW_WORDS` | `jaw,…,draw,drill,jawline` | Stage 3 trigger. ⚠️ Includes `drill` — what "jaw" became on the night |
+| `JARVIS_QUEST_JAW_MAX_WORDS` | `10` | Longest utterance still counted as naming the jaw. Guests speak in sentences, not keywords |
 | `JARVIS_QUEST_WORD2` | `roses` | Second magic word. Must be said **after** the first |
 | `JARVIS_QUEST_FORGOTTEN` | (built in) | Reply to "what are you waiting for" — he has forgotten, and sends them for the words |
 | `JARVIS_QUEST_WRONG_ORDER` | (built in) | Both words, wrong order — a hint, never silence |
