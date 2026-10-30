@@ -171,6 +171,20 @@ REPEAT_WINDOW_S = float(os.environ.get("JARVIS_QUEST_REPEAT_WINDOW_S", "180"))
 REPEAT_PREFIX = os.environ.get("JARVIS_QUEST_REPEAT_PREFIX",
                                "Again? Very well. Listen this time. ")
 
+# Stage 2 and 3 trigger words, configurable for the same reason as the magic
+# words: Whisper mangles accented speech in ways no default list anticipates.
+# On the day itself "winter" came back as "win there", "win third", "win their"
+# and "with their", and "skull" came back as "call".
+#
+# ⚠️ "call" is in the skull list deliberately. A guest saying it in passing can
+# at worst hear Elena named early; a guest who solved the puzzle and cannot tell
+# him is the far more expensive failure.
+SKULL_WORDS = set(_forms(os.environ.get(
+    "JARVIS_QUEST_SKULL_WORDS", "skull,skulls,call,scull,skol")))
+JAW_WORDS = set(_forms(os.environ.get(
+    "JARVIS_QUEST_JAW_WORDS", "jaw,jaws,jawbone,teeth,tooth,mouth,jor,draw")))
+
+
 _WORD = re.compile(r"[a-z0-9]+")
 
 
@@ -208,7 +222,7 @@ STAGES = (
     },
     {
         "name": "found",
-        "groups": ({"skull"},
+        "groups": (SKULL_WORDS,
                    {"found", "find", "finded", "got", "have", "has",
                     "seen", "see", "saw", "theres", "there"}),
         "max_words": None,
@@ -220,7 +234,7 @@ STAGES = (
         # happens to contain it from handing the answer to a group that has not
         # earned it.
         "name": "jaw",
-        "groups": ({"jaw", "jaws", "jawbone", "teeth", "tooth", "mouth"},),
+        "groups": (JAW_WORDS,),
         "max_words": 6,
         "reply": lambda: JAW,
     },
