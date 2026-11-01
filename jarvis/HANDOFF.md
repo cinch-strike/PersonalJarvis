@@ -14,6 +14,88 @@ Jarvis is Donnie's personal AI voice assistant, inspired by Iron Man. Built in p
 
 ---
 
+## 🎃 Halloween 2026 — it ran, and the quest was solved
+
+*Written 1 Nov 2026, the morning after. Read this before touching anything next
+October.*
+
+**Outcome: success.** Vlad ran through the party, guests talked to him, and at
+least one group completed the Elena quest end to end — both magic words, the
+skull, the jaw, and working out the descendant. The full chain held up in a loud
+house, with strangers' voices, which is the only test that ever counted.
+
+### The three things that nearly broke it
+
+**1. Accented speech vs. Whisper `tiny.en`.** During the afternoon diagnostic
+"winter" came back as *win there* / *win third* / *win their*, "skull" as
+*call*, and "jaw" as *drill*. Fixed by making every trigger word a config
+variable (`6f06ace`, `59bf1b8`), so each new mangling went into `jarvis.env` in
+seconds — no code change, no restart into untested territory. Also raised
+`JARVIS_QUEST_JAW_MAX_WORDS` from 6 to 10 so guests could answer in a sentence
+rather than a bare word.
+
+> ⚠️ **Honest lesson.** The word list won on the night, but it won by patching
+> symptoms under time pressure, hours before guests arrived. `tiny.en` is the
+> real constraint. Evaluate `base.en` against the same accents in *September*,
+> when there's room to be wrong.
+
+**2. The PIR.** The original sensor false-triggered on a metronome — HIGH 1.16s,
+LOW 3.84s, a dead-exact 5.000s period — at maximum sensitivity, and detected
+nothing at all with the pots centred. Swapped in the spare, which showed the
+*same* 1.165s pulse signature, and after a restart it detected real approaches
+correctly. **Never explained.** The H/L jumper was never checked and is the
+first thing to test next time.
+
+**3. ReSpeaker USB dropouts.** ALSA error -19; it crashed twice inside two
+minutes during the diagnostic, then held for the entire party. The cable was
+never reseated. This remains the single biggest unexplained risk in the build —
+it survived on luck, not on a fix.
+
+### Resilience that earned its keep
+
+None of this was visibly needed on the night, which is exactly the point:
+
+- LLM failure speaks an in-character line instead of crashing the prop (added
+  after the 401 key crash-looped 7×)
+- Stall guard `os._exit(1)` when `stream.read()` blocks past the cap, so
+  systemd restarts instead of the prop standing frozen in "Listening"
+- Bounded `wait_for_no_motion()` so a stuck-high PIR can't strand him
+- Ambience lock + `pkill` sweep so a stray `aplay` can't hold the speaker and
+  mute him
+
+### Final as-run values
+
+| Setting | Value | Note |
+|---|---|---|
+| `JARVIS_VAD_SILENCE` | **1200** | Survived shutdown and reboot; unchanged all night |
+| Speaker volume | **wpctl 0.70** = ALSA 85% | Above ~0.7 is what triggered the USB drops |
+| `JARVIS_JAW_RATE_HZ` | **1** | Slowest setting; eyes in sync |
+| `JARVIS_JAW_CLOSED_ANGLE` / `OPEN` | **5 / 4** | One degree of travel, open *below* closed — see note below |
+| `JARVIS_MOTION_COOLDOWN` | **0** | Presence-driven re-arm instead |
+| `JARVIS_MOTION_CLEAR_TIMEOUT` | **10** | Re-arms even if the sensor stays high |
+| `JARVIS_QUEST_JAW_MAX_WORDS` | **10** | Raised from 6 on the day |
+| PIR | **spare sensor fitted** | Original kept as the known-bad one |
+
+Trigger-word lists as run are the defaults in `quest.py` (`SKULL_WORDS`,
+`JAW_WORDS`, `WORD1_FORMS`, `WORD2_FORMS`) plus anything added to `jarvis.env`
+on the night. `jarvis.env` is not in git — it holds both API keys — so the
+table above is the recovery copy.
+
+### Before next Halloween
+
+1. **SD card image backup.** Recommended all season and still not done. Every
+   tuned value, key and fix above lives on exactly one card.
+2. **ReSpeaker USB** — reseat at the sensor end, move the Pi end to a different
+   controller from the speaker, check for strain at the connector.
+3. **PIR** — check the H/L jumper and re-characterise both sensors cold, with
+   the 20-minute empty-room soak, not a five-minute wave test.
+4. **`base.en` vs `tiny.en`** against Donnie's and Bianca's accents, early.
+5. **Jaw geometry.** Closed 5° / open 4° is one degree of travel with the open
+   position *below* the closed one. It worked, but that's the leverage problem
+   in `SERVO_MEASUREMENTS.md` being worked around, not a calibration.
+
+---
+
 ## Phase Status
 
 | Phase | Description | Status |
@@ -277,6 +359,8 @@ the tether has.
 breadboard and powerboard — not started.
 
 ### ⚠️ Working values as of 28 Oct 2026 — three days before the party
+
+*Superseded — see the as-run table in the Halloween 2026 section above.*
 
 `jarvis.env` is not in git (it holds both API keys), so these are written here
 to be recoverable. If that SD card dies, this is the tuning you rebuild from.
